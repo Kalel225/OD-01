@@ -1,0 +1,6 @@
+{
+  "name": "OD-01 — Ouest Dynamics",
+  "description": "Archive industrielle interactive 3D et boutique utilitaire monochrome OD-01 (Habits, Chaussures, Accessoires) avec module Admin PWA et paiement à la livraison.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

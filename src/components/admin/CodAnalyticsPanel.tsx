@@ -40,43 +40,43 @@ export const CodAnalyticsPanel: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* 4-Column COD Real-Time KPI Grid */}
-      <div className="grid grid-cols-1 gap-px border border-black bg-black sm:grid-cols-2 lg:grid-cols-4">
-        <div className="bg-white p-5">
-          <div className="text-[10px] text-[#7A7A7A]">CA ENGAGÉ (ACTIF COD)</div>
-          <div className="mt-2 text-[18px] font-bold text-black tabular-nums">
+      <div className="grid grid-cols-2 gap-px border border-black bg-black lg:grid-cols-4">
+        <div className="bg-white p-4 sm:p-5">
+          <div className="text-[9px] text-[#7A7A7A] sm:text-[10px]">CA ENGAGÉ (ACTIF COD)</div>
+          <div className="mt-2 text-[15px] font-bold text-black tabular-nums sm:text-[18px]">
             {formatFcfa(analytics.caEngageFcfa)}
           </div>
-          <div className="mt-2 text-[10px] text-[#7A7A7A] tabular-nums">
+          <div className="mt-2 text-[9px] text-[#7A7A7A] tabular-nums sm:text-[10px]">
             {analytics.totalOrders - analytics.refusedCount} COMMANDES VALIDES
           </div>
         </div>
 
-        <div className="bg-white p-5">
-          <div className="text-[10px] text-[#7A7A7A]">CA ENCAISSÉ (LIVRÉES)</div>
-          <div className="mt-2 text-[18px] font-bold text-black tabular-nums">
+        <div className="bg-white p-4 sm:p-5">
+          <div className="text-[9px] text-[#7A7A7A] sm:text-[10px]">CA ENCAISSÉ (LIVRÉES)</div>
+          <div className="mt-2 text-[15px] font-bold text-black tabular-nums sm:text-[18px]">
             {formatFcfa(analytics.caEncaisseFcfa)}
           </div>
-          <div className="mt-2 text-[10px] text-[#7A7A7A] tabular-nums">
+          <div className="mt-2 text-[9px] text-[#7A7A7A] tabular-nums sm:text-[10px]">
             {analytics.deliveredCount} LIVRAISONS ENCAISSÉES
           </div>
         </div>
 
-        <div className="bg-white p-5">
-          <div className="text-[10px] text-[#7A7A7A]">TAUX DE CONFIRMATION</div>
-          <div className="mt-2 text-[18px] font-bold text-black tabular-nums">
+        <div className="bg-white p-4 sm:p-5">
+          <div className="text-[9px] text-[#7A7A7A] sm:text-[10px]">TAUX DE CONFIRMATION</div>
+          <div className="mt-2 text-[15px] font-bold text-black tabular-nums sm:text-[18px]">
             {analytics.confirmationRate}%
           </div>
-          <div className="mt-2 text-[10px] text-[#7A7A7A] tabular-nums">
+          <div className="mt-2 text-[9px] text-[#7A7A7A] tabular-nums sm:text-[10px]">
             {analytics.pendingCount} EN ATTENTE DE VALIDATION
           </div>
         </div>
 
-        <div className="bg-white p-5">
-          <div className="text-[10px] text-[#7A7A7A]">TAUX DE REFUS (NDR)</div>
-          <div className="mt-2 text-[18px] font-bold text-black tabular-nums">
+        <div className="bg-white p-4 sm:p-5">
+          <div className="text-[9px] text-[#7A7A7A] sm:text-[10px]">TAUX DE REFUS (NDR)</div>
+          <div className="mt-2 text-[15px] font-bold text-black tabular-nums sm:text-[18px]">
             {analytics.ndrRate}%
           </div>
-          <div className="mt-2 text-[10px] text-[#7A7A7A] tabular-nums">
+          <div className="mt-2 text-[9px] text-[#7A7A7A] tabular-nums sm:text-[10px]">
             {analytics.refusedCount} REFUS / NON-LIVRÉES
           </div>
         </div>
@@ -94,7 +94,7 @@ export const CodAnalyticsPanel: React.FC = () => {
               key={status}
               type="button"
               onClick={() => setStatusFilter(status)}
-              className={`min-h-[34px] border px-3 text-[10px] transition-colors whitespace-nowrap ${
+              className={`min-h-[34px] border px-2.5 text-[10px] transition-colors whitespace-nowrap sm:px-3 ${
                 statusFilter === status
                   ? 'border-black bg-black text-white'
                   : 'border-[#E5E5E5] bg-white text-[#7A7A7A] hover:border-black hover:text-black'
@@ -108,16 +108,16 @@ export const CodAnalyticsPanel: React.FC = () => {
 
       {/* Orders Table */}
       <div className="overflow-x-auto border border-[#E5E5E5]">
-        <table className="w-full min-w-[760px] border-collapse text-left text-[11px]">
+        <table className="w-full min-w-[680px] border-collapse text-left text-[11px]">
           <thead>
             <tr className="border-b border-black bg-[#F7F7F7] text-[10px] text-[#7A7A7A]">
-              <th className="px-4 py-3 font-bold">RÉFÉRENCE</th>
-              <th className="px-4 py-3 font-bold">CLIENT / WHATSAPP</th>
-              <th className="px-4 py-3 font-bold">LIVRAISON</th>
-              <th className="px-4 py-3 font-bold">ARTICLES</th>
-              <th className="px-4 py-3 font-bold text-right">TOTAL NET</th>
-              <th className="px-4 py-3 font-bold">STATUT COD</th>
-              <th className="px-4 py-3 font-bold text-right">ACTIONS</th>
+              <th className="px-3 py-3 font-bold md:px-4">RÉFÉRENCE</th>
+              <th className="px-3 py-3 font-bold md:px-4">CLIENT / WHATSAPP</th>
+              <th className="px-3 py-3 font-bold md:px-4">LIVRAISON</th>
+              <th className="px-3 py-3 font-bold md:px-4">ARTICLES</th>
+              <th className="px-3 py-3 font-bold text-right md:px-4">TOTAL NET</th>
+              <th className="px-3 py-3 font-bold md:px-4">STATUT COD</th>
+              <th className="px-3 py-3 font-bold text-right md:px-4">ACTIONS</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#E5E5E5]">
@@ -130,28 +130,28 @@ export const CodAnalyticsPanel: React.FC = () => {
             ) : (
               filteredOrders.map((order) => (
                 <tr key={order.id} className="hover:bg-[#F7F7F7]">
-                  <td className="px-4 py-3.5 font-bold tabular-nums whitespace-nowrap">
+                  <td className="px-3 py-3.5 font-bold tabular-nums whitespace-nowrap md:px-4">
                     <div>{order.reference}</div>
                     <div className="mt-0.5 text-[10px] font-normal text-[#7A7A7A]">
                       {new Date(order.createdAt).toLocaleDateString('fr-FR')}
                     </div>
                   </td>
 
-                  <td className="px-4 py-3.5">
+                  <td className="px-3 py-3.5 md:px-4">
                     <div className="font-bold">{order.customerName}</div>
                     <div className="mt-0.5 text-[10px] text-[#7A7A7A] tabular-nums">
                       {order.whatsapp}
                     </div>
                   </td>
 
-                  <td className="px-4 py-3.5">
+                  <td className="px-3 py-3.5 md:px-4">
                     <div>{order.commune}</div>
-                    <div className="mt-0.5 max-w-[200px] truncate text-[10px] text-[#7A7A7A]">
+                    <div className="mt-0.5 max-w-[180px] truncate text-[10px] text-[#7A7A7A]">
                       {order.landmark}
                     </div>
                   </td>
 
-                  <td className="px-4 py-3.5">
+                  <td className="px-3 py-3.5 md:px-4">
                     <div className="space-y-0.5 text-[10px]">
                       {order.items.map((item) => (
                         <div key={`${item.productId}-${item.sizeLabel}`} className="tabular-nums">
@@ -161,11 +161,11 @@ export const CodAnalyticsPanel: React.FC = () => {
                     </div>
                   </td>
 
-                  <td className="px-4 py-3.5 text-right font-bold tabular-nums whitespace-nowrap">
+                  <td className="px-3 py-3.5 text-right font-bold tabular-nums whitespace-nowrap md:px-4">
                     {formatFcfa(order.totalFcfa)}
                   </td>
 
-                  <td className="px-4 py-3.5">
+                  <td className="px-3 py-3.5 md:px-4">
                     <select
                       aria-label={`Statut de la commande ${order.reference}`}
                       value={order.status}
@@ -188,7 +188,7 @@ export const CodAnalyticsPanel: React.FC = () => {
                     </select>
                   </td>
 
-                  <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                  <td className="px-3 py-3.5 text-right whitespace-nowrap md:px-4">
                     <div className="inline-flex items-center gap-1">
                       <button
                         type="button"

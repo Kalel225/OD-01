@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { Product } from '../../types/od01';
 import { disposeObject3D } from './disposeUtils';
-import { create2DTo3DMeshGroup } from './imageTo3D';
+import { create2DTo3DMeshGroup, Turntable360Controller } from './imageTo3D';
 import { createProceduralModel } from './proceduralModels';
 
 interface UniverseStage3DProps {
@@ -126,8 +126,7 @@ export const UniverseStage3D: React.FC<UniverseStage3DProps> = ({
     }
 
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.08;
+    renderer.toneMapping = THREE.NoToneMapping;
     renderer.setPixelRatio(isSoftwareGl ? 1 : Math.min(window.devicePixelRatio || 1, 2));
     renderer.setClearColor(0xffffff, 1);
     renderer.shadowMap.enabled = !isSoftwareGl;
@@ -144,24 +143,24 @@ export const UniverseStage3D: React.FC<UniverseStage3DProps> = ({
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xffffff);
-    // Calibrated studio gallery depth fog: 0% on enlarged foreground (z=0), ~60% atmospheric haze on background (z=-3.05)
-    scene.fog = new THREE.Fog(0xffffff, 6.3, 9.7);
+    const fog = new THREE.Fog(0xffffff, 6.2, 9.7);
+    scene.fog = fog;
 
     const pmremGenerator = new THREE.PMREMGenerator(renderer);
     const envTarget = pmremGenerator.fromScene(new RoomEnvironment(), 0.04);
     scene.environment = envTarget.texture;
     pmremGenerator.dispose();
 
-    const camera = new THREE.PerspectiveCamera(34, initW / initH, 0.1, 40);
-    camera.position.set(0, 0.38, 5.25);
+    const camera = new THREE.PerspectiveCamera(34, initW / initH, 0.1, 45);
+    camera.position.set(0, 0.28, 5.35);
     camera.lookAt(0, -0.02, 0);
 
-    // Calibrated Gallery 4-Point Studio Lighting (brings out tumbled leather, matte cotton, & chrome)
-    const hemiLight = new THREE.HemisphereLight(0xfafcff, 0xe4e4e4, 1.05);
+    // Calibrated True-Color Studio Lighting (preserves deep black leather & crisp white knit)
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0xeaeaea, 0.55);
     scene.add(hemiLight);
 
-    const keyLight = new THREE.DirectionalLight(0xfffcf5, 2.05);
-    keyLight.position.set(3.6, 5.6, 4.6);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.05);
+    keyLight.position.set(3.4, 5.2, 4.6);
     keyLight.castShadow = !isSoftwareGl;
     keyLight.shadow.mapSize.set(1024, 1024);
     keyLight.shadow.camera.left = -5;
@@ -172,12 +171,12 @@ export const UniverseStage3D: React.FC<UniverseStage3DProps> = ({
     keyLight.shadow.normalBias = 0.02;
     scene.add(keyLight);
 
-    const rimLight = new THREE.DirectionalLight(0xeef4ff, 1.45);
-    rimLight.position.set(-4.2, 3.2, -3.4);
+    const rimLight = new THREE.DirectionalLight(0xf2f6ff, 0.72);
+    rimLight.position.set(-4.0, 2.8, -3.4);
     scene.add(rimLight);
 
-    const fillLight = new THREE.DirectionalLight(0xffffff, 0.58);
-    fillLight.position.set(-2.4, 0.9, 4.2);
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.35);
+    fillLight.position.set(-2.2, 0.8, 4.2);
     scene.add(fillLight);
 
     // Shared contact shadow texture & invisible proxy geometries for fast raycasting
@@ -217,9 +216,9 @@ export const UniverseStage3D: React.FC<UniverseStage3DProps> = ({
         currentModel: null,
         loadedKey: '',
         targetRotY: 0,
-        targetRotX: 0.02,
+        targetRotX: 0.08,
         currentRotY: 0,
-        currentRotX: 0.02,
+        currentRotX: 0.08,
       };
     };
 
@@ -255,18 +254,52 @@ export const UniverseStage3D: React.FC<UniverseStage3DProps> = ({
       typeof window !== 'undefined' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    const getSideSpacing = () => {
-      const aspect = camera.aspect || 1;
-      const halfFovRad = THREE.MathUtils.degToRad(camera.fov / 2);
-      // Visible half-width at deeper background plane (z = -3.05 -> distance 8.30 from camera)
-      const bgHalfWidth = Math.tan(halfFovRad) * 8.3 * aspect;
-      // Wide editorial flank separation (~5 cm further from center hero while remaining visible)
-      return THREE.MathUtils.clamp(bgHalfWidth * 0.8, 2.05, 4.15);
+    const getResponsiveMetrics = () => {
+      const aspect = Math.max(camera.aspect || 1, 0.42);
+      const tanHalfFov = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+
+      // Keep foreground hero comfortably framed on mobile, portrait tablet, landscape tablet & desktop
+      const fgScale = aspect < 0.7 ? 1.02 : aspect < 1.08 ? 1.12 : 1.18;
+      const bgScale = aspect < 0.7 ? 0.46 : aspect < 1.08 ? 0.5 : 0.52;
+      const heroHalfSpan = 1.16 * fgScale;
+
+      const zForWidth = heroHalfSpan / (tanHalfFov * aspect * 0.7);
+      const zForHeight = heroHalfSpan / (tanHalfFov * 0.76);
+      const cameraZ = THREE.MathUtils.clamp(Math.max(5.3, zForWidth, zForHeight), 5.3, 9.2);
+      const cameraY = aspect < 1.0 ? 0.2 : 0.3;
+
+      const bgZ = -2.9;
+      const bgHalfWidth = tanHalfFov * (cameraZ - bgZ) * aspect;
+
+      let spacing: number;
+      if (aspect >= 1.55) {
+        spacing = THREE.MathUtils.clamp(bgHalfWidth * 0.75, 2.35, 4.1);
+      } else if (aspect >= 1.05) {
+        // Landscape tablets & compact laptops
+        spacing = THREE.MathUtils.clamp(bgHalfWidth * 0.72, 1.9, 3.15);
+      } else if (aspect >= 0.7) {
+        // Portrait tablets (iPad / Android tablets)
+        spacing = THREE.MathUtils.clamp(bgHalfWidth * 0.74, 1.55, 2.45);
+      } else {
+        // Smartphones
+        spacing = THREE.MathUtils.clamp(bgHalfWidth * 0.78, 1.32, 1.88);
+      }
+
+      return { cameraZ, cameraY, fgScale, bgScale, bgZ, spacing };
+    };
+
+    const syncCameraFraming = () => {
+      const { cameraZ, cameraY } = getResponsiveMetrics();
+      camera.position.set(0, cameraY, cameraZ);
+      camera.lookAt(0, -0.02, 0);
+      // Keep consistent ~58% atmospheric depth haze on recessed background items across all viewports
+      fog.near = cameraZ + 0.9;
+      fog.far = cameraZ + 4.35;
     };
 
     const layoutSlots = () => {
       const effectiveIndex = engine.animatedIndex + engine.dragTrackOffset;
-      const spacing = getSideSpacing();
+      const { fgScale, bgScale, bgZ, spacing } = getResponsiveMetrics();
 
       for (let i = 0; i < 3; i++) {
         const node = slotNodes[i];
@@ -275,32 +308,40 @@ export const UniverseStage3D: React.FC<UniverseStage3DProps> = ({
         const bgBlend = Math.min(absOff, 1);
 
         const posX = offset * spacing;
-        const posZ = -bgBlend * 3.05 - Math.max(0, absOff - 1) * 1.85;
-        const posY = bgBlend * 0.24 + Math.max(0, absOff - 1) * 0.1;
+        const posZ = bgBlend * bgZ - Math.max(0, absOff - 1) * 1.85;
+        const posY = bgBlend * 0.22 + Math.max(0, absOff - 1) * 0.1;
         const scale = Math.max(
-          0.28,
-          1.18 - bgBlend * 0.68 - Math.max(0, absOff - 1) * 0.22
+          0.26,
+          fgScale - bgBlend * (fgScale - bgScale) - Math.max(0, absOff - 1) * 0.2
         );
 
         node.container.position.set(posX, posY, posZ);
         node.container.scale.setScalar(scale);
 
-        // Keep background items effortlessly clickable despite smaller recessed scale
-        node.hitProxy.scale.setScalar(1 + bgBlend * 0.28);
+        // Keep background items effortlessly clickable/tappable on tablets & touchscreens
+        node.hitProxy.scale.setScalar(1 + bgBlend * 0.34);
 
         // Soft diffused shadow for background depth vs grounded foreground contact shadow
         const shadowMat = node.shadow.material as THREE.MeshBasicMaterial;
         shadowMat.opacity = Math.max(0.1, 1 - bgBlend * 0.84 - Math.max(0, absOff - 1) * 0.1);
 
-        // Subtle physical breathing float & gallery showcase sway (keeps photorealistic 3/4 angle crisp)
-        const activeSwayAmp = i === engine.targetIndex && isActivelyRotating ? 0 : 1 - bgBlend * 0.35;
-        const swayY = Math.sin(idleClock * 0.72 + i * 1.6) * 0.21 * activeSwayAmp;
-        const swayX = Math.sin(idleClock * 0.52 + i * 1.1) * 0.035 * activeSwayAmp;
-        const floatY = Math.sin(idleClock * 1.05 + i * 1.3) * 0.024 * (1 - bgBlend * 0.5);
-
-        node.pivot.position.y = 0.04 + floatY;
-        node.pivot.rotation.y = node.currentRotY + swayY - Math.sign(offset) * bgBlend * 0.16;
-        node.pivot.rotation.x = node.currentRotX + swayX;
+        // Firmly grounded on an invisible motorized turntable (zero floating bob, pure 360° spin)
+        node.pivot.position.y = 0.02;
+        const turntable = node.currentModel?.userData?.turntable360 as
+          | Turntable360Controller
+          | undefined;
+        if (turntable) {
+          node.pivot.rotation.set(0, 0, 0);
+          turntable.updateOrbit(
+            node.currentRotY,
+            node.currentRotX,
+            -Math.sign(offset) * bgBlend * 0.14,
+            0
+          );
+        } else {
+          node.pivot.rotation.y = node.currentRotY - Math.sign(offset) * bgBlend * 0.12;
+          node.pivot.rotation.x = node.currentRotX;
+        }
       }
     };
 
@@ -339,9 +380,17 @@ export const UniverseStage3D: React.FC<UniverseStage3DProps> = ({
         const dt = Math.min(0.05, Math.max(0.001, (now - lastTime) / 1000));
         lastTime = now;
 
-        // Smooth gallery showcase idle phase on GPU devices
+        // Continuous real-time 360° invisible-turntable rotation for every exposed article
         if (!isSoftwareGl && !prefersReducedMotion) {
           idleClock += dt;
+          for (let i = 0; i < 3; i++) {
+            const node = slotNodes[i];
+            const isDraggedSlot = isActivelyRotating && i === activeIndexRef.current;
+            if (!isDraggedSlot) {
+              const spinSpeed = i === engine.targetIndex ? 0.56 : 0.32;
+              node.targetRotY += dt * spinSpeed;
+            }
+          }
         }
 
         if (isSoftwareGl || prefersReducedMotion) {
@@ -485,7 +534,7 @@ export const UniverseStage3D: React.FC<UniverseStage3DProps> = ({
           setCursorMode('grabbing');
           const activeNode = slotNodes[activeIndexRef.current];
           if (activeNode) {
-            activeNode.targetRotY += dx * 0.0115;
+            activeNode.targetRotY += dx * 0.014;
             activeNode.targetRotX = THREE.MathUtils.clamp(
               activeNode.targetRotX + dy * 0.007,
               -0.45,
@@ -612,12 +661,14 @@ export const UniverseStage3D: React.FC<UniverseStage3DProps> = ({
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
         renderer.setSize(w, h, false);
+        syncCameraFraming();
         layoutSlots();
         requestRender();
       }
     });
     resizeObserver.observe(container);
 
+    syncCameraFraming();
     layoutSlots();
     requestRender();
 
@@ -665,11 +716,14 @@ export const UniverseStage3D: React.FC<UniverseStage3DProps> = ({
   }, [activeIndex]);
 
   // 3. Sync each of the 3 universe 3D models independently with strict .dispose()
-  const slotKeys = slots.map((p) =>
-    p
-      ? `${p.id}|${p.modelPreset}|${p.custom3D?.imageDataUrl?.length ?? 0}|${p.custom3D?.depth ?? 0}|${p.custom3D?.finish ?? ''}|${p.custom3D?.removeBackground ?? false}|${p.custom3D?.volumeMode ?? 'SCULPTED'}|${p.custom3D?.reliefStrength ?? 0.5}|${p.custom3D?.bgTolerance ?? 48}`
-      : 'EMPTY'
-  );
+  const slotKeys = slots.map((p) => {
+    if (!p) return 'EMPTY';
+    const v360 = p.custom3D?.views360;
+    const viewsSig = v360
+      ? `${v360.length}:${v360.map((u) => `${u.slice(0, 24)}:${u.length}`).join(',')}`
+      : '1';
+    return `${p.id}|${p.modelPreset}|${p.custom3D?.imageDataUrl?.length ?? 0}|${viewsSig}|${p.custom3D?.depth ?? 0}|${p.custom3D?.finish ?? ''}|${p.custom3D?.removeBackground ?? false}|${p.custom3D?.volumeMode ?? 'SCULPTED'}|${p.custom3D?.reliefStrength ?? 0.5}|${p.custom3D?.bgTolerance ?? 48}`;
+  });
 
   useEffect(() => {
     const engine = engineRef.current;
@@ -697,10 +751,20 @@ export const UniverseStage3D: React.FC<UniverseStage3DProps> = ({
         if (nextModel) {
           node.currentModel = nextModel;
           node.pivot.add(nextModel);
-          node.targetRotY = 0;
-          node.targetRotX = 0.02;
-          node.currentRotY = 0;
-          node.currentRotX = 0.02;
+
+          // Ground contact shadow directly beneath the sole / hem / base of the 3D object
+          const bbox = new THREE.Box3().setFromObject(nextModel);
+          if (!bbox.isEmpty()) {
+            node.shadow.position.y = Math.min(-0.62, bbox.min.y - 0.04);
+          } else {
+            node.shadow.position.y = -1.18;
+          }
+
+          const initialYaw = idx === activeIndexRef.current ? 0.35 : idx * 1.1;
+          node.targetRotY = initialYaw;
+          node.targetRotX = 0.08;
+          node.currentRotY = initialYaw;
+          node.currentRotX = 0.08;
         }
         engine.requestRender();
       };

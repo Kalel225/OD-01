@@ -55,21 +55,25 @@ export const CatalogManagerPanel: React.FC<CatalogManagerPanelProps> = ({
         {filtered.map((product) => (
           <div
             key={product.id}
-            className={`grid grid-cols-1 gap-4 bg-white p-4 md:grid-cols-12 md:items-center ${
+            className={`grid grid-cols-1 gap-4 bg-white p-4 sm:grid-cols-2 lg:grid-cols-12 lg:items-center ${
               !product.active ? 'opacity-50' : ''
             }`}
           >
-            <div className="md:col-span-2">
-              <ProductThumbnail product={product} className="h-20 w-full" />
+            <div className="sm:col-span-1 lg:col-span-2">
+              <ProductThumbnail product={product} className="h-24 w-full lg:h-20" />
             </div>
 
-            <div className="md:col-span-4">
+            <div className="min-w-0 sm:col-span-1 lg:col-span-4">
               <div className="text-[10px] text-[#7A7A7A] tabular-nums">
                 {product.sku} · {product.universe}
-                {product.isCustom ? ' · 2D→3D' : ''}
+                {product.custom3D?.views360 && product.custom3D.views360.length >= 2
+                  ? ` · 360° (${product.custom3D.views360.length} VUES)`
+                  : product.isCustom
+                    ? ' · 2D→3D'
+                    : ''}
               </div>
-              <div className="mt-1 text-[12px] font-bold text-black">{product.name}</div>
-              <div className="mt-2 flex items-center gap-2">
+              <div className="mt-1 truncate text-[12px] font-bold text-black">{product.name}</div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
                 <label className="text-[10px] text-[#7A7A7A]">PRIX FCFA</label>
                 <input
                   type="number"
@@ -87,7 +91,7 @@ export const CatalogManagerPanel: React.FC<CatalogManagerPanelProps> = ({
               </div>
             </div>
 
-            <div className="md:col-span-4">
+            <div className="sm:col-span-2 lg:col-span-4">
               <div className="mb-1.5 text-[10px] text-[#7A7A7A]">STOCKS PAR TAILLE</div>
               <div className="flex flex-wrap gap-1.5">
                 {product.sizes.map((s) => (
@@ -116,7 +120,7 @@ export const CatalogManagerPanel: React.FC<CatalogManagerPanelProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-1.5 md:col-span-2">
+            <div className="flex items-center justify-end gap-1.5 sm:col-span-2 lg:col-span-2">
               <button
                 type="button"
                 onClick={() => toggleProductActive(product.id)}

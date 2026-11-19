@@ -24,25 +24,25 @@ export const DescriptionModal: React.FC<DescriptionModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg bg-white"
+        className="flex max-h-[88dvh] w-full max-w-lg flex-col bg-white"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-6 pt-5 pb-3">
-          <div>
+        <div className="flex shrink-0 items-center justify-between px-5 pt-4 pb-3 sm:px-6 sm:pt-5">
+          <div className="min-w-0 pr-2">
             <div className="text-[10px] text-[#7A7A7A] tabular-nums">{product.sku}</div>
-            <h2 className="mt-0.5 text-[12px] font-bold text-black">{product.name}</h2>
+            <h2 className="mt-0.5 truncate text-[12px] font-bold text-black">{product.name}</h2>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Fermer la fiche technique"
-            className="flex h-10 w-10 items-center justify-center text-black transition-opacity hover:opacity-50"
+            className="flex h-10 w-10 shrink-0 items-center justify-center text-black transition-opacity hover:opacity-50"
           >
             <X className="h-4 w-4 stroke-[1.5]" />
           </button>
         </div>
 
-        <div className="max-h-[72dvh] space-y-6 overflow-y-auto px-6 py-3 text-[11px] leading-relaxed">
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-3 text-[11px] leading-relaxed sm:space-y-6 sm:px-6">
           <p className="text-black">{product.description}</p>
 
           <div className="space-y-3 bg-[#F7F7F7] p-4">
@@ -96,7 +96,7 @@ export const DescriptionModal: React.FC<DescriptionModalProps> = ({
           </div>
         </div>
 
-        <div className="px-6 pt-3 pb-5">
+        <div className="shrink-0 px-5 pt-3 pb-4 sm:px-6 sm:pb-5">
           <button
             type="button"
             onClick={onClose}

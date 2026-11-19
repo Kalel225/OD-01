@@ -115,8 +115,8 @@ export const CartModal: React.FC<CartModalProps> = ({ open, onClose }) => {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header — Borderless */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-3">
-          <div className="text-[12px] font-bold tracking-[0.12em]">
+        <div className="flex shrink-0 items-center justify-between gap-2 px-5 pt-4 pb-3 sm:px-6 sm:pt-5">
+          <div className="min-w-0 truncate text-[11px] font-bold tracking-[0.12em] sm:text-[12px]">
             {step === 'CART' && `PANIER UNIFIÉ (${totalItems})`}
             {step === 'COD_FORM' && 'VALIDATION DU PANIER · TAILLES & LIVRAISON'}
             {step === 'CONFIRMED' && `COMMANDE ENREGISTRÉE · ${confirmedOrder?.reference ?? ''}`}
@@ -125,7 +125,7 @@ export const CartModal: React.FC<CartModalProps> = ({ open, onClose }) => {
             type="button"
             onClick={handleClose}
             aria-label="Fermer le panier"
-            className="flex h-10 w-10 items-center justify-center text-black transition-opacity hover:opacity-50"
+            className="flex h-10 w-10 shrink-0 items-center justify-center text-black transition-opacity hover:opacity-50"
           >
             <X className="h-4 w-4 stroke-[1.5]" />
           </button>

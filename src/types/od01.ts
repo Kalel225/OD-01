@@ -38,7 +38,15 @@ export type CustomFinish = 'MATTE' | 'SATIN' | 'LEATHER' | 'METALLIC';
 export type CustomVolumeMode = 'SCULPTED' | 'RIGID' | 'PUFFER';
 
 export interface Custom3DConfig {
+  /** Primary front / 0° studio photo */
   imageDataUrl: string;
+  /**
+   * Optional ordered multi-angle photos around the article (clockwise from front):
+   * - 2 views: [0° Front/Side A, 180° Back/Side B]
+   * - 4 views: [0° Front, 90° Right, 180° Back, 270° Left]
+   * - Up to 12 views: evenly spaced 360° turntable sequence
+   */
+  views360?: string[];
   removeBackground: boolean;
   depth: number;
   finish: CustomFinish;

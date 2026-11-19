@@ -11,7 +11,9 @@ import {
 
 const STORAGE_KEYS = {
   CART: 'od01_unified_cart_v2',
-  PRODUCTS: 'od01_catalog_products_v3',
+  PRODUCTS: 'od01_catalog_products_v5',
+  LEGACY_PRODUCTS_V4: 'od01_catalog_products_v4',
+  LEGACY_PRODUCTS_V3: 'od01_catalog_products_v3',
   LEGACY_PRODUCTS_V2: 'od01_catalog_products_v2',
   LEGACY_PRODUCTS_V1: 'od01_catalog_products_v1',
   ORDERS: 'od01_cod_orders_v2',
@@ -29,14 +31,23 @@ function readStorage<T>(key: string, fallback: T): T {
 }
 
 function loadInitialProducts(): Product[] {
-  const existingV3 = readStorage<Product[] | null>(STORAGE_KEYS.PRODUCTS, null);
-  if (existingV3 && existingV3.length > 0) {
-    return existingV3;
+  const existingV5 = readStorage<Product[] | null>(STORAGE_KEYS.PRODUCTS, null);
+  if (existingV5 && existingV5.length > 0) {
+    return existingV5;
   }
-  // Preserve any custom photo-to-3D articles added earlier while upgrading the 12 core SKUs to photorealistic studio items
+  // Preserve any custom photo-to-3D articles added earlier while upgrading flagship SKUs to 8-angle 360° continuous studio sets
+  const legacyV4 = readStorage<Product[]>(STORAGE_KEYS.LEGACY_PRODUCTS_V4, []);
+  const legacyV3 = readStorage<Product[]>(STORAGE_KEYS.LEGACY_PRODUCTS_V3, []);
   const legacyV2 = readStorage<Product[]>(STORAGE_KEYS.LEGACY_PRODUCTS_V2, []);
   const legacyV1 = readStorage<Product[]>(STORAGE_KEYS.LEGACY_PRODUCTS_V1, []);
-  const legacySource = legacyV2.length > 0 ? legacyV2 : legacyV1;
+  const legacySource =
+    legacyV4.length > 0
+      ? legacyV4
+      : legacyV3.length > 0
+        ? legacyV3
+        : legacyV2.length > 0
+          ? legacyV2
+          : legacyV1;
   const customOnly = legacySource.filter((p) => p.isCustom);
   return [...customOnly, ...SEED_PRODUCTS];
 }

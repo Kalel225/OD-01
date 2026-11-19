@@ -3,13 +3,19 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { Product } from '../../types/od01';
 import { disposeObject3D } from './disposeUtils';
-import { create2DTo3DMeshGroup } from './imageTo3D';
+import { create2DTo3DMeshGroup, Turntable360Controller } from './imageTo3D';
 import { createProceduralModel } from './proceduralModels';
 
 interface ProductStage3DProps {
   product: Product;
   onObjectClick?: () => void;
   interactiveCatalogClick?: boolean;
+  /** Optional target yaw in radians (used by Admin quick-angle 0°/90°/180°/270° controls) */
+  forcedYawRad?: number | null;
+  /** Optional version counter to re-trigger forcedYawRad even when clicking the same angle twice */
+  forcedYawNonce?: number;
+  /** Reports normalized 0–359° orbit angle for studio inspection HUD */
+  onYawChange?: (degrees: number) => void;
   className?: string;
 }
 
@@ -60,6 +66,9 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
   product,
   onObjectClick,
   interactiveCatalogClick = true,
+  forcedYawRad = null,
+  forcedYawNonce = 0,
+  onYawChange,
   className = '',
 }) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -69,21 +78,27 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
   const interactiveClickRef = useRef(interactiveCatalogClick);
   interactiveClickRef.current = interactiveCatalogClick;
 
+  const onYawChangeRef = useRef(onYawChange);
+  onYawChangeRef.current = onYawChange;
+
   const [webglUnavailable, setWebglUnavailable] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const lastImageIdentityRef = useRef<string>('');
+  const lastReportedDegRef = useRef<number>(-1);
 
   // Scene imperative handles so product swaps never recreate the WebGL context
   const sceneStateRef = useRef<{
     scene: THREE.Scene;
     renderer: THREE.WebGLRenderer;
     pivot: THREE.Group;
+    shadowPlane: THREE.Mesh;
     currentModel: THREE.Group | null;
     targetRotY: number;
     targetRotX: number;
     currentRotY: number;
     currentRotX: number;
     entryScale: number;
+    pauseAutoSpinUntil: number;
     requestRender: () => void;
     isSoftwareGl: boolean;
   } | null>(null);
@@ -107,8 +122,7 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
     }
 
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.08;
+    renderer.toneMapping = THREE.NoToneMapping;
     renderer.setPixelRatio(isSoftwareGl ? 1 : Math.min(window.devicePixelRatio || 1, 2));
     renderer.setClearColor(0xffffff, 1);
     renderer.shadowMap.enabled = !isSoftwareGl;
@@ -133,15 +147,22 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
     pmremGenerator.dispose();
 
     const camera = new THREE.PerspectiveCamera(34, width / height, 0.1, 100);
-    camera.position.set(0, 0.45, 5.1);
-    camera.lookAt(0, -0.05, 0);
+    const updateCameraDistance = (aspect: number) => {
+      const safeAspect = Math.max(aspect || 1, 0.5);
+      const tanHalfFov = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+      const zForWidth = 1.25 / (tanHalfFov * safeAspect * 0.72);
+      const camZ = THREE.MathUtils.clamp(Math.max(4.95, zForWidth), 4.95, 7.6);
+      camera.position.set(0, 0.3, camZ);
+      camera.lookAt(0, -0.02, 0);
+    };
+    updateCameraDistance(width / height);
 
-    // Calibrated Gallery 4-Point Studio Lighting (Key + Cool Rim + Front Soft Fill + Hemisphere)
-    const hemiLight = new THREE.HemisphereLight(0xfafcff, 0xe4e4e4, 1.05);
+    // Calibrated True-Color Studio Lighting
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0xeaeaea, 0.55);
     scene.add(hemiLight);
 
-    const keyLight = new THREE.DirectionalLight(0xfffcf5, 2.05);
-    keyLight.position.set(3.6, 5.4, 4.4);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.05);
+    keyLight.position.set(3.4, 5.2, 4.6);
     keyLight.castShadow = !isSoftwareGl;
     keyLight.shadow.mapSize.set(1024, 1024);
     keyLight.shadow.camera.left = -3;
@@ -152,12 +173,12 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
     keyLight.shadow.normalBias = 0.02;
     scene.add(keyLight);
 
-    const rimLight = new THREE.DirectionalLight(0xeef4ff, 1.45);
-    rimLight.position.set(-4.2, 3.0, -3.5);
+    const rimLight = new THREE.DirectionalLight(0xf2f6ff, 0.72);
+    rimLight.position.set(-4.0, 2.8, -3.4);
     scene.add(rimLight);
 
-    const fillLight = new THREE.DirectionalLight(0xffffff, 0.58);
-    fillLight.position.set(-2.4, 0.9, 4.2);
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.35);
+    fillLight.position.set(-2.2, 0.8, 4.2);
     scene.add(fillLight);
 
     // Contact shadow grounding plane
@@ -192,12 +213,14 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
       scene,
       renderer,
       pivot,
+      shadowPlane,
       currentModel: null as THREE.Group | null,
-      targetRotY: 0,
-      targetRotX: 0.02,
-      currentRotY: 0,
-      currentRotX: 0.02,
+      targetRotY: 0.35,
+      targetRotX: 0.08,
+      currentRotY: 0.35,
+      currentRotX: 0.08,
       entryScale: 0.92,
+      pauseAutoSpinUntil: 0,
       requestRender: () => {},
       isSoftwareGl,
     };
@@ -241,9 +264,10 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
         const dt = Math.min(0.05, Math.max(0.001, (now - lastTime) / 1000));
         lastTime = now;
 
-        // Gentle gallery showcase sway on GPU devices when idle (full 360° orbit on drag)
-        if (!isSoftwareGl && !prefersReducedMotion && !draggingLocal) {
+        // Real-time continuous invisible-turntable spin (pauses cleanly while dragging or inspecting a locked side)
+        if (!isSoftwareGl && !prefersReducedMotion && !draggingLocal && now >= state.pauseAutoSpinUntil) {
           idleClock += dt;
+          state.targetRotY += dt * 0.48;
         }
 
         if (isSoftwareGl || prefersReducedMotion) {
@@ -256,13 +280,29 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
           state.entryScale = THREE.MathUtils.damp(state.entryScale, 1, 12, dt);
         }
 
-        const swayAmp = draggingLocal ? 0 : 1;
-        const swayY = Math.sin(idleClock * 0.78) * 0.24 * swayAmp;
-        const swayX = Math.sin(idleClock * 0.55) * 0.04 * swayAmp;
-        pivot.position.y = 0.02 + Math.sin(idleClock * 1.1) * 0.02 * swayAmp;
-        pivot.rotation.y = state.currentRotY + swayY;
-        pivot.rotation.x = state.currentRotX + swayX;
+        pivot.position.y = 0.02;
         pivot.scale.setScalar(state.entryScale);
+
+        const turntable = state.currentModel?.userData?.turntable360 as
+          | Turntable360Controller
+          | undefined;
+        if (turntable) {
+          pivot.rotation.set(0, 0, 0);
+          turntable.updateOrbit(state.currentRotY, state.currentRotX, 0, 0);
+        } else {
+          pivot.rotation.y = state.currentRotY;
+          pivot.rotation.x = state.currentRotX;
+        }
+
+        if (onYawChangeRef.current) {
+          const twoPi = Math.PI * 2;
+          const normRad = ((state.currentRotY % twoPi) + twoPi) % twoPi;
+          const deg = Math.round((normRad * 180) / Math.PI) % 360;
+          if (deg !== lastReportedDegRef.current) {
+            lastReportedDegRef.current = deg;
+            onYawChangeRef.current(deg);
+          }
+        }
 
         renderer.render(scene, camera);
 
@@ -328,7 +368,7 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
           draggingLocal = true;
           setIsDragging(true);
         }
-        state.targetRotY += dx * 0.0115;
+        state.targetRotY += dx * 0.014;
         state.targetRotX = THREE.MathUtils.clamp(state.targetRotX + dy * 0.007, -0.45, 0.58);
         requestRender();
       }
@@ -374,13 +414,14 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
     dom.addEventListener('webglcontextlost', onContextLost);
     dom.addEventListener('webglcontextrestored', onContextRestored);
 
-    // ResizeObserver for crisp responsive viewport
+    // ResizeObserver for crisp responsive viewport (mobile, tablet, desktop)
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const w = Math.max(Math.floor(entry.contentRect.width), 1);
         const h = Math.max(Math.floor(entry.contentRect.height), 1);
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
+        updateCameraDistance(w / h);
         renderer.setSize(w, h, false);
         requestRender();
       }
@@ -419,7 +460,27 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
     };
   }, []);
 
-  // 2. Swap 3D Product Mesh cleanly on product or custom3D change
+  // 2. Smoothly rotate to requested cardinal inspection angle (Admin Studio 0°/90°/180°/270°)
+  useEffect(() => {
+    const state = sceneStateRef.current;
+    if (!state || forcedYawRad === null || forcedYawRad === undefined) return;
+    const twoPi = Math.PI * 2;
+    const currentNorm = ((state.targetRotY % twoPi) + twoPi) % twoPi;
+    const targetNorm = ((forcedYawRad % twoPi) + twoPi) % twoPi;
+    let delta = targetNorm - currentNorm;
+    if (delta > Math.PI) delta -= twoPi;
+    if (delta < -Math.PI) delta += twoPi;
+    state.targetRotY += delta;
+    state.targetRotX = 0.08;
+    state.pauseAutoSpinUntil = performance.now() + 4000;
+    state.requestRender();
+  }, [forcedYawRad, forcedYawNonce]);
+
+  const views360Sig = product.custom3D?.views360
+    ? product.custom3D.views360.map((u) => `${u.slice(0, 32)}:${u.length}`).join('|')
+    : '';
+
+  // 3. Swap 3D Product Mesh cleanly on product or custom3D change
   useEffect(() => {
     const state = sceneStateRef.current;
     if (!state) return;
@@ -441,12 +502,20 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
       }
       state.currentModel = nextModel;
       state.pivot.add(nextModel);
+
+      const bbox = new THREE.Box3().setFromObject(nextModel);
+      if (!bbox.isEmpty()) {
+        state.shadowPlane.position.y = Math.min(-0.62, bbox.min.y - 0.04);
+      } else {
+        state.shadowPlane.position.y = -1.18;
+      }
+
       if (isNewSource) {
         state.entryScale = state.isSoftwareGl ? 1 : 0.9;
-        state.targetRotY = 0;
-        state.targetRotX = 0.02;
-        state.currentRotY = 0;
-        state.currentRotX = 0.02;
+        state.targetRotY = 0.35;
+        state.targetRotX = 0.08;
+        state.currentRotY = 0.35;
+        state.currentRotX = 0.08;
       }
       state.requestRender();
     };
@@ -472,6 +541,7 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
     product.id,
     product.modelPreset,
     product.custom3D?.imageDataUrl,
+    views360Sig,
     product.custom3D?.removeBackground,
     product.custom3D?.depth,
     product.custom3D?.finish,

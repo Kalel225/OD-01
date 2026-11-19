@@ -222,7 +222,7 @@ export const UniverseSlider: React.FC<UniverseSliderProps> = ({
         {/* Real-time Abidjan GMT Clock (Top-Right of Content Area) */}
         <div
           aria-live="off"
-          className="pointer-events-none absolute top-14 right-5 z-20 text-[10px] tracking-[0.12em] text-[#7A7A7A] tabular-nums md:right-8"
+          className="pointer-events-none absolute top-13 right-4 z-20 text-[9px] tracking-[0.12em] text-[#7A7A7A] tabular-nums sm:top-14 sm:right-6 sm:text-[10px] md:right-8"
         >
           {abidjanTime}
         </div>
@@ -242,16 +242,14 @@ export const UniverseSlider: React.FC<UniverseSliderProps> = ({
             <div
               key={calloutRunId}
               aria-hidden="true"
-              className="pointer-events-none absolute top-[19%] left-[53%] z-10 flex items-start select-none sm:top-[18%] sm:left-[55%] md:top-[17%] md:left-[54%]"
+              className="pointer-events-none absolute top-[13%] left-1/2 z-10 flex max-w-[46vw] translate-x-[4%] items-start select-none sm:top-[15%] sm:max-w-[44vw] sm:translate-x-[10%] md:top-[16%] md:max-w-[42vw] md:translate-x-[14%] lg:top-[17%] lg:translate-x-[16%]"
             >
               {/* Animated hairline branch connecting the upper-right edge of the article to the label */}
               <svg
-                width="64"
-                height="42"
                 viewBox="0 0 64 42"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
-                className="shrink-0 overflow-visible"
+                className="h-7 w-9 shrink-0 overflow-visible sm:h-9 sm:w-12 md:h-[42px] md:w-16"
               >
                 <motion.rect
                   x="0.5"
@@ -280,7 +278,7 @@ export const UniverseSlider: React.FC<UniverseSliderProps> = ({
               </svg>
 
               {/* Small animated text attached to the branch tip (not a button) */}
-              <div className="ml-2 mt-[2px] flex items-center text-[8.5px] leading-none tracking-[0.11em] text-[#7A7A7A] whitespace-nowrap sm:text-[9px]">
+              <div className="ml-1.5 mt-[1px] flex flex-wrap items-center text-[8px] leading-[1.35] tracking-[0.1em] text-[#7A7A7A] sm:ml-2 sm:mt-[2px] sm:flex-nowrap sm:text-[9px] sm:leading-none sm:whitespace-nowrap">
                 {Array.from(CALLOUT_TEXT).map((ch, idx) => (
                   <motion.span
                     key={`${calloutRunId}-${idx}`}
@@ -303,19 +301,19 @@ export const UniverseSlider: React.FC<UniverseSliderProps> = ({
 
         {/* Borderless Minimal Bottom Dock (SKU + Actions + @ OD-01 only) */}
         {currentProduct && (
-          <section className="shrink-0 bg-white px-4 pt-2 pb-3 md:px-8">
-            <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-3">
+          <section className="shrink-0 bg-white px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 md:px-8">
+            <div className="mx-auto flex w-full max-w-md flex-col items-center gap-2.5 md:max-w-xl md:gap-3">
               {/* SKU Code Only */}
-              <div className="text-[11px] font-bold tracking-[0.14em] text-black tabular-nums">
+              <div className="text-[10px] font-bold tracking-[0.14em] text-black tabular-nums sm:text-[11px]">
                 {currentProduct.sku}
               </div>
 
               {/* Action Row: DESCRIPTION · AJOUTER AU PANIER · Conditional PANIER (N) */}
-              <div className="flex w-full items-stretch gap-2">
+              <div className="flex w-full items-stretch gap-1.5 sm:gap-2">
                 <button
                   type="button"
                   onClick={() => setDescriptionOpen(true)}
-                  className="min-h-[42px] bg-white px-3.5 text-[11px] font-bold tracking-[0.1em] text-black transition-colors hover:bg-[#F7F7F7] whitespace-nowrap shrink-0"
+                  className="min-h-[42px] shrink-0 bg-white px-2.5 text-[10px] font-bold tracking-[0.08em] text-black transition-colors hover:bg-[#F7F7F7] whitespace-nowrap sm:px-3.5 sm:text-[11px] sm:tracking-[0.1em]"
                 >
                   DESCRIPTION
                 </button>
@@ -324,7 +322,7 @@ export const UniverseSlider: React.FC<UniverseSliderProps> = ({
                   type="button"
                   onClick={handleAddToCart}
                   disabled={!currentProductInStock}
-                  className="min-h-[42px] flex-1 bg-black px-4 text-[11px] font-bold tracking-[0.1em] text-white transition-colors hover:bg-[#1A1A1A] disabled:bg-[#7A7A7A] whitespace-nowrap"
+                  className="min-h-[42px] min-w-0 flex-1 bg-black px-3 text-[10px] font-bold tracking-[0.08em] text-white transition-colors hover:bg-[#1A1A1A] disabled:bg-[#7A7A7A] whitespace-nowrap sm:px-4 sm:text-[11px] sm:tracking-[0.1em]"
                 >
                   {!currentProductInStock
                     ? 'RUPTURE DE STOCK'
@@ -337,7 +335,7 @@ export const UniverseSlider: React.FC<UniverseSliderProps> = ({
                   <button
                     type="button"
                     onClick={() => setCartOpen(true)}
-                    className="min-h-[42px] bg-white px-3.5 text-[11px] font-bold tracking-[0.1em] text-black transition-colors hover:bg-[#F7F7F7] tabular-nums whitespace-nowrap shrink-0"
+                    className="min-h-[42px] shrink-0 bg-white px-2.5 text-[10px] font-bold tracking-[0.08em] text-black transition-colors hover:bg-[#F7F7F7] tabular-nums whitespace-nowrap sm:px-3.5 sm:text-[11px] sm:tracking-[0.1em]"
                   >
                     PANIER ({totalItems})
                   </button>
@@ -346,7 +344,7 @@ export const UniverseSlider: React.FC<UniverseSliderProps> = ({
             </div>
 
             {/* Minimal Legal Signature */}
-            <div className="mt-3 text-center text-[10px] tracking-[0.14em] text-[#7A7A7A]">
+            <div className="mt-2.5 text-center text-[10px] tracking-[0.14em] text-[#7A7A7A] sm:mt-3">
               @ OD-01
             </div>
           </section>

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Check, Copy, Minus, Plus, Trash2, X } from 'lucide-react';
-import { useCartStore } from '../../store/useOD01Store';
-import { CodOrder, formatFcfa } from '../../types/od01';
+import { useCartStore, useOD01Store } from '../../store/useOD01Store';
+import { CodOrder, Product, formatFcfa } from '../../types/od01';
 
 interface CartModalProps {
   open: boolean;
@@ -13,8 +13,16 @@ type CheckoutStep = 'CART' | 'COD_FORM' | 'CONFIRMED';
 const WHATSAPP_MERCHANT_NUMBER = '2250700000101';
 
 export const CartModal: React.FC<CartModalProps> = ({ open, onClose }) => {
-  const { items, totalItems, totalFcfa, updateQuantity, removeItem, placeCodOrder } =
-    useCartStore();
+  const { products } = useOD01Store();
+  const {
+    items,
+    totalItems,
+    totalFcfa,
+    updateQuantity,
+    updateItemSize,
+    removeItem,
+    placeCodOrder,
+  } = useCartStore();
 
   const [step, setStep] = useState<CheckoutStep>('CART');
   const [customerName, setCustomerName] = useState('');
@@ -24,6 +32,14 @@ export const CartModal: React.FC<CartModalProps> = ({ open, onClose }) => {
   const [formError, setFormError] = useState<string | null>(null);
   const [confirmedOrder, setConfirmedOrder] = useState<CodOrder | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const productById = useMemo(() => {
+    const map = new Map<string, Product>();
+    for (const p of products) {
+      map.set(p.id, p);
+    }
+    return map;
+  }, [products]);
 
   if (!open) return null;
 
@@ -38,12 +54,19 @@ export const CartModal: React.FC<CartModalProps> = ({ open, onClose }) => {
 
   const handleSubmitCod = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customerName.trim() || !whatsapp.trim() || !commune.trim() || !landmark.trim()) {
-      setFormError('VEUILLEZ RENSEIGNER TOUS LES CHAMPS DE LIVRAISON.');
-      return;
-    }
     if (items.length === 0) {
       setFormError('VOTRE PANIER EST VIDE.');
+      return;
+    }
+
+    const missingSizeItem = items.find((item) => !item.sizeLabel.trim());
+    if (missingSizeItem) {
+      setFormError(`VEUILLEZ SÉLECTIONNER UNE TAILLE POUR ${missingSizeItem.sku}.`);
+      return;
+    }
+
+    if (!customerName.trim() || !whatsapp.trim() || !commune.trim() || !landmark.trim()) {
+      setFormError('VEUILLEZ RENSEIGNER TOUS LES CHAMPS DE LIVRAISON.');
       return;
     }
 
@@ -69,7 +92,6 @@ export const CartModal: React.FC<CartModalProps> = ({ open, onClose }) => {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2200);
     } catch {
-      // Fallback for restricted clipboard environments
       setCopied(false);
     }
   };
@@ -89,21 +111,21 @@ export const CartModal: React.FC<CartModalProps> = ({ open, onClose }) => {
       onClick={handleClose}
     >
       <div
-        className="flex max-h-[88dvh] w-full max-w-xl flex-col border border-black bg-white"
+        className="flex max-h-[88dvh] w-full max-w-xl flex-col bg-white"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-black px-5 py-3.5">
+        {/* Header — Borderless */}
+        <div className="flex items-center justify-between px-6 pt-5 pb-3">
           <div className="text-[12px] font-bold tracking-[0.12em]">
             {step === 'CART' && `PANIER UNIFIÉ (${totalItems})`}
-            {step === 'COD_FORM' && 'VALIDATION · PAIEMENT À LA LIVRAISON'}
+            {step === 'COD_FORM' && 'VALIDATION DU PANIER · TAILLES & LIVRAISON'}
             {step === 'CONFIRMED' && `COMMANDE ENREGISTRÉE · ${confirmedOrder?.reference ?? ''}`}
           </div>
           <button
             type="button"
             onClick={handleClose}
             aria-label="Fermer le panier"
-            className="flex h-10 w-10 items-center justify-center border border-transparent text-black hover:border-black"
+            className="flex h-10 w-10 items-center justify-center text-black transition-opacity hover:opacity-50"
           >
             <X className="h-4 w-4 stroke-[1.5]" />
           </button>
@@ -112,17 +134,17 @@ export const CartModal: React.FC<CartModalProps> = ({ open, onClose }) => {
         {/* STEP 1: CART LIST */}
         {step === 'CART' && (
           <>
-            <div className="flex-1 overflow-y-auto p-5">
+            <div className="flex-1 overflow-y-auto px-6 py-3">
               {items.length === 0 ? (
                 <div className="py-12 text-center text-[11px] text-[#7A7A7A]">
                   AUCUN ARTICLE SÉLECTIONNÉ POUR LE MOMENT.
                 </div>
               ) : (
-                <div className="divide-y divide-[#E5E5E5] border-t border-b border-[#E5E5E5]">
+                <div className="space-y-3">
                   {items.map((item) => (
                     <div
-                      key={`${item.productId}-${item.sizeLabel}`}
-                      className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"
+                      key={`${item.productId}-${item.sizeLabel || 'PENDING'}`}
+                      className="flex flex-col gap-3 bg-[#F7F7F7] p-4 sm:flex-row sm:items-center sm:justify-between"
                     >
                       <div className="min-w-0 flex-1">
                         <div className="text-[10px] text-[#7A7A7A] tabular-nums">
@@ -132,17 +154,19 @@ export const CartModal: React.FC<CartModalProps> = ({ open, onClose }) => {
                           {item.name}
                         </div>
                         <div className="mt-1 text-[10px] text-[#7A7A7A] tabular-nums">
-                          TAILLE {item.sizeLabel} ({item.sizeCm}) · {formatFcfa(item.unitPriceFcfa)}
+                          {item.sizeLabel
+                            ? `TAILLE ${item.sizeLabel} (${item.sizeCm}) · ${formatFcfa(item.unitPriceFcfa)}`
+                            : `TAILLE À CHOISIR À LA VALIDATION · ${formatFcfa(item.unitPriceFcfa)}`}
                         </div>
                       </div>
 
                       <div className="flex items-center justify-between gap-4 sm:justify-end">
-                        <div className="flex items-center border border-black">
+                        <div className="flex items-center bg-white">
                           <button
                             type="button"
                             onClick={() => updateQuantity(item.productId, item.sizeLabel, -1)}
                             aria-label="Diminuer la quantité"
-                            className="flex h-9 w-9 items-center justify-center text-black hover:bg-[#F7F7F7]"
+                            className="flex h-9 w-9 items-center justify-center text-black hover:bg-[#EAEAEA]"
                           >
                             <Minus className="h-3.5 w-3.5" />
                           </button>
@@ -153,7 +177,7 @@ export const CartModal: React.FC<CartModalProps> = ({ open, onClose }) => {
                             type="button"
                             onClick={() => updateQuantity(item.productId, item.sizeLabel, 1)}
                             aria-label="Augmenter la quantité"
-                            className="flex h-9 w-9 items-center justify-center text-black hover:bg-[#F7F7F7]"
+                            className="flex h-9 w-9 items-center justify-center text-black hover:bg-[#EAEAEA]"
                           >
                             <Plus className="h-3.5 w-3.5" />
                           </button>
@@ -178,8 +202,8 @@ export const CartModal: React.FC<CartModalProps> = ({ open, onClose }) => {
               )}
             </div>
 
-            {/* Net Total Footer */}
-            <div className="border-t border-black bg-white p-5">
+            {/* Net Total Footer — Borderless */}
+            <div className="bg-white px-6 pt-4 pb-5">
               <div className="flex items-baseline justify-between">
                 <span className="text-[11px] text-[#7A7A7A]">
                   TOTAL NET (PAIEMENT À LA LIVRAISON)
@@ -193,14 +217,17 @@ export const CartModal: React.FC<CartModalProps> = ({ open, onClose }) => {
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="min-h-[44px] flex-1 border border-black bg-white text-[11px] font-bold tracking-[0.12em] text-black hover:bg-[#F7F7F7]"
+                  className="min-h-[44px] flex-1 bg-[#F7F7F7] text-[11px] font-bold tracking-[0.12em] text-black hover:bg-[#EAEAEA]"
                 >
                   CONTINUER
                 </button>
                 <button
                   type="button"
                   disabled={items.length === 0}
-                  onClick={() => setStep('COD_FORM')}
+                  onClick={() => {
+                    setFormError(null);
+                    setStep('COD_FORM');
+                  }}
                   className="min-h-[44px] flex-1 bg-black text-[11px] font-bold tracking-[0.12em] text-white hover:bg-[#1A1A1A] disabled:bg-[#7A7A7A]"
                 >
                   VALIDER
@@ -210,79 +237,155 @@ export const CartModal: React.FC<CartModalProps> = ({ open, onClose }) => {
           </>
         )}
 
-        {/* STEP 2: EXPRESS COD FORM */}
+        {/* STEP 2: CART VALIDATION — SIZE SELECTION + EXPRESS COD FORM */}
         {step === 'COD_FORM' && (
-          <form onSubmit={handleSubmitCod} className="flex flex-1 flex-col overflow-y-auto">
-            <div className="flex-1 space-y-4 p-5">
-              <div className="border border-[#E5E5E5] bg-[#F7F7F7] p-3 text-[10px] text-black">
-                AUCUN PAIEMENT EN LIGNE REQUIS. VOUS RÉGLEZ EN ESPÈCES OU MOBILE MONEY À LA RÉCEPTION.
+          <form onSubmit={handleSubmitCod} className="flex min-h-0 flex-1 flex-col">
+            <div className="flex-1 space-y-6 overflow-y-auto px-6 py-3">
+              {/* Dedicated Size / Pointure Selection for each article in the cart */}
+              <div className="space-y-3">
+                <div className="text-[10px] font-bold tracking-[0.12em] text-black">
+                  1. SÉLECTION DES TAILLES / POINTURES *
+                </div>
+
+                <div className="space-y-2.5">
+                  {items.map((item) => {
+                    const product = productById.get(item.productId);
+                    const availableSizes = product?.sizes ?? [];
+
+                    return (
+                      <div
+                        key={`${item.productId}-${item.sizeLabel || 'PENDING'}`}
+                        className="space-y-2.5 bg-[#F7F7F7] p-4"
+                      >
+                        <div className="flex flex-wrap items-baseline justify-between gap-2">
+                          <div className="text-[11px] font-bold text-black">
+                            <span className="tabular-nums">{item.sku}</span>
+                            <span className="mx-1.5 text-[#7A7A7A]">·</span>
+                            <span>{item.name}</span>
+                            <span className="ml-1.5 text-[10px] text-[#7A7A7A] tabular-nums">
+                              ×{item.quantity}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-[#7A7A7A] tabular-nums">
+                            {item.sizeCm ? `ÉQUIV. ${item.sizeCm}` : 'CHOISIR UNE TAILLE'}
+                          </div>
+                        </div>
+
+                        <div
+                          className="flex flex-wrap items-center gap-1.5"
+                          role="radiogroup"
+                          aria-label={`Taille pour ${item.name}`}
+                        >
+                          {availableSizes.map((variant) => {
+                            const isOut = variant.stock <= 0;
+                            const isSelected = item.sizeLabel === variant.label;
+                            return (
+                              <button
+                                key={variant.label}
+                                type="button"
+                                disabled={isOut}
+                                onClick={() => {
+                                  setFormError(null);
+                                  updateItemSize(
+                                    item.productId,
+                                    item.sizeLabel,
+                                    variant.label,
+                                    variant.cm
+                                  );
+                                }}
+                                aria-checked={isSelected}
+                                role="radio"
+                                className={`min-h-[34px] min-w-[38px] px-2.5 text-[10px] tabular-nums transition-colors whitespace-nowrap ${
+                                  isOut
+                                    ? 'cursor-not-allowed bg-white/60 text-[#7A7A7A] line-through'
+                                    : isSelected
+                                      ? 'bg-black font-bold text-white'
+                                      : 'bg-white text-black hover:bg-[#EAEAEA]'
+                                }`}
+                              >
+                                {variant.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
-              <div>
-                <label className="mb-1.5 block text-[10px] font-bold text-black">
-                  NOM COMPLET *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="EX: KONAN MARC-OLIVIER"
-                  className="h-11 w-full border border-black bg-white px-3 text-[11px] text-black placeholder:text-[#7A7A7A]"
-                />
-              </div>
+              {/* Delivery Details */}
+              <div className="space-y-4">
+                <div className="text-[10px] font-bold tracking-[0.12em] text-black">
+                  2. LIVRAISON · PAIEMENT À LA RÉCEPTION (COD)
+                </div>
 
-              <div>
-                <label className="mb-1.5 block text-[10px] font-bold text-black">
-                  NUMÉRO WHATSAPP *
-                </label>
-                <input
-                  type="tel"
-                  required
-                  value={whatsapp}
-                  onChange={(e) => setWhatsapp(e.target.value)}
-                  placeholder="EX: +225 07 00 00 00 00"
-                  className="h-11 w-full border border-black bg-white px-3 text-[11px] text-black placeholder:text-[#7A7A7A]"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-[10px] font-bold text-black">
-                    COMMUNE / QUARTIER *
+                    NOM COMPLET *
                   </label>
                   <input
                     type="text"
                     required
-                    value={commune}
-                    onChange={(e) => setCommune(e.target.value)}
-                    placeholder="EX: COCODY RIVIERA 2"
-                    className="h-11 w-full border border-black bg-white px-3 text-[11px] text-black placeholder:text-[#7A7A7A]"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    placeholder="EX: KONAN MARC-OLIVIER"
+                    className="h-11 w-full bg-[#F7F7F7] px-3.5 text-[11px] text-black placeholder:text-[#7A7A7A]"
                   />
                 </div>
+
                 <div>
                   <label className="mb-1.5 block text-[10px] font-bold text-black">
-                    REPÈRE DE LIVRAISON *
+                    NUMÉRO WHATSAPP *
                   </label>
                   <input
-                    type="text"
+                    type="tel"
                     required
-                    value={landmark}
-                    onChange={(e) => setLandmark(e.target.value)}
-                    placeholder="EX: PHARMACIE SAINT-VIATEUR"
-                    className="h-11 w-full border border-black bg-white px-3 text-[11px] text-black placeholder:text-[#7A7A7A]"
+                    value={whatsapp}
+                    onChange={(e) => setWhatsapp(e.target.value)}
+                    placeholder="EX: +225 07 00 00 00 00"
+                    className="h-11 w-full bg-[#F7F7F7] px-3.5 text-[11px] text-black placeholder:text-[#7A7A7A]"
                   />
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1.5 block text-[10px] font-bold text-black">
+                      COMMUNE / QUARTIER *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={commune}
+                      onChange={(e) => setCommune(e.target.value)}
+                      placeholder="EX: COCODY RIVIERA 2"
+                      className="h-11 w-full bg-[#F7F7F7] px-3.5 text-[11px] text-black placeholder:text-[#7A7A7A]"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-[10px] font-bold text-black">
+                      REPÈRE DE LIVRAISON *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={landmark}
+                      onChange={(e) => setLandmark(e.target.value)}
+                      placeholder="EX: PHARMACIE SAINT-VIATEUR"
+                      className="h-11 w-full bg-[#F7F7F7] px-3.5 text-[11px] text-black placeholder:text-[#7A7A7A]"
+                    />
+                  </div>
                 </div>
               </div>
 
               {formError && (
-                <div className="border border-black bg-black px-3 py-2 text-[10px] text-white">
+                <div className="bg-black px-3.5 py-2.5 text-[10px] text-white">
                   {formError}
                 </div>
               )}
             </div>
 
-            <div className="border-t border-black p-5">
+            <div className="shrink-0 bg-white px-6 pt-4 pb-5">
               <div className="mb-4 flex items-baseline justify-between">
                 <span className="text-[11px] text-[#7A7A7A]">TOTAL NET À RÉGLER</span>
                 <span className="text-[14px] font-bold text-black tabular-nums">
@@ -292,8 +395,11 @@ export const CartModal: React.FC<CartModalProps> = ({ open, onClose }) => {
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setStep('CART')}
-                  className="min-h-[44px] flex-1 border border-black bg-white text-[11px] font-bold text-black hover:bg-[#F7F7F7]"
+                  onClick={() => {
+                    setFormError(null);
+                    setStep('CART');
+                  }}
+                  className="min-h-[44px] flex-1 bg-[#F7F7F7] text-[11px] font-bold text-black hover:bg-[#EAEAEA]"
                 >
                   RETOUR
                 </button>
@@ -310,8 +416,8 @@ export const CartModal: React.FC<CartModalProps> = ({ open, onClose }) => {
 
         {/* STEP 3: GENERATED WHATSAPP SUMMARY */}
         {step === 'CONFIRMED' && confirmedOrder && (
-          <div className="flex flex-1 flex-col overflow-y-auto p-5">
-            <div className="border border-black bg-[#F7F7F7] p-3 text-[11px] font-bold text-black">
+          <div className="flex flex-1 flex-col overflow-y-auto px-6 pt-2 pb-5">
+            <div className="bg-[#F7F7F7] p-3.5 text-[11px] font-bold text-black">
               COMMANDE COD ENREGISTRÉE — PRÊTE POUR EXPÉDITION WHATSAPP
             </div>
 
@@ -319,7 +425,7 @@ export const CartModal: React.FC<CartModalProps> = ({ open, onClose }) => {
               <div className="mb-1.5 text-[10px] text-[#7A7A7A]">
                 MESSAGE RÉCAPITULATIF GÉNÉRÉ
               </div>
-              <pre className="max-h-56 overflow-y-auto whitespace-pre-wrap border border-black bg-white p-3.5 text-[10px] leading-relaxed text-black tabular-nums">
+              <pre className="max-h-56 overflow-y-auto whitespace-pre-wrap bg-[#F7F7F7] p-4 text-[10px] leading-relaxed text-black tabular-nums">
                 {confirmedOrder.whatsappMessage}
               </pre>
             </div>
@@ -328,7 +434,7 @@ export const CartModal: React.FC<CartModalProps> = ({ open, onClose }) => {
               <button
                 type="button"
                 onClick={handleCopySummary}
-                className="flex min-h-[44px] flex-1 items-center justify-center gap-2 border border-black bg-white px-4 text-[11px] font-bold text-black hover:bg-[#F7F7F7]"
+                className="flex min-h-[44px] flex-1 items-center justify-center gap-2 bg-[#F7F7F7] px-4 text-[11px] font-bold text-black hover:bg-[#EAEAEA]"
               >
                 {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                 <span>{copied ? 'COPIÉ' : 'COPIER LE MESSAGE'}</span>

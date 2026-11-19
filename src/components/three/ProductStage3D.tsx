@@ -71,6 +71,7 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
 
   const [webglUnavailable, setWebglUnavailable] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const lastImageIdentityRef = useRef<string>('');
 
   // Scene imperative handles so product swaps never recreate the WebGL context
   const sceneStateRef = useRef<{
@@ -135,12 +136,12 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
     camera.position.set(0, 0.45, 5.1);
     camera.lookAt(0, -0.05, 0);
 
-    // 3-Point Studio Lighting (Warm Key + Cool Hemisphere Fill + Crisp Rim)
-    const hemiLight = new THREE.HemisphereLight(0xf6f8ff, 0xe8e8e8, 0.95);
+    // Calibrated Gallery 4-Point Studio Lighting (Key + Cool Rim + Front Soft Fill + Hemisphere)
+    const hemiLight = new THREE.HemisphereLight(0xfafcff, 0xe4e4e4, 1.05);
     scene.add(hemiLight);
 
-    const keyLight = new THREE.DirectionalLight(0xfffaf0, 1.85);
-    keyLight.position.set(3.5, 5.2, 4.2);
+    const keyLight = new THREE.DirectionalLight(0xfffcf5, 2.05);
+    keyLight.position.set(3.6, 5.4, 4.4);
     keyLight.castShadow = !isSoftwareGl;
     keyLight.shadow.mapSize.set(1024, 1024);
     keyLight.shadow.camera.left = -3;
@@ -151,9 +152,13 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
     keyLight.shadow.normalBias = 0.02;
     scene.add(keyLight);
 
-    const rimLight = new THREE.DirectionalLight(0xeef3ff, 1.15);
-    rimLight.position.set(-4.0, 2.8, -3.5);
+    const rimLight = new THREE.DirectionalLight(0xeef4ff, 1.45);
+    rimLight.position.set(-4.2, 3.0, -3.5);
     scene.add(rimLight);
+
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.58);
+    fillLight.position.set(-2.4, 0.9, 4.2);
+    scene.add(fillLight);
 
     // Contact shadow grounding plane
     const shadowTex = createContactShadowTexture();
@@ -180,6 +185,7 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
     let renderDirty = false;
     let disposed = false;
     let lastTime = performance.now();
+    let idleClock = 0;
     let draggingLocal = false;
 
     const state = {
@@ -187,10 +193,10 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
       renderer,
       pivot,
       currentModel: null as THREE.Group | null,
-      targetRotY: 0.42,
-      targetRotX: 0.14,
-      currentRotY: 0.42,
-      currentRotX: 0.14,
+      targetRotY: 0,
+      targetRotX: 0.02,
+      currentRotY: 0,
+      currentRotX: 0.02,
       entryScale: 0.92,
       requestRender: () => {},
       isSoftwareGl,
@@ -235,9 +241,9 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
         const dt = Math.min(0.05, Math.max(0.001, (now - lastTime) / 1000));
         lastTime = now;
 
-        // Gentle studio turntable motion on GPU devices only when idle
+        // Gentle gallery showcase sway on GPU devices when idle (full 360° orbit on drag)
         if (!isSoftwareGl && !prefersReducedMotion && !draggingLocal) {
-          state.targetRotY += dt * 0.22;
+          idleClock += dt;
         }
 
         if (isSoftwareGl || prefersReducedMotion) {
@@ -250,8 +256,12 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
           state.entryScale = THREE.MathUtils.damp(state.entryScale, 1, 12, dt);
         }
 
-        pivot.rotation.y = state.currentRotY;
-        pivot.rotation.x = state.currentRotX;
+        const swayAmp = draggingLocal ? 0 : 1;
+        const swayY = Math.sin(idleClock * 0.78) * 0.24 * swayAmp;
+        const swayX = Math.sin(idleClock * 0.55) * 0.04 * swayAmp;
+        pivot.position.y = 0.02 + Math.sin(idleClock * 1.1) * 0.02 * swayAmp;
+        pivot.rotation.y = state.currentRotY + swayY;
+        pivot.rotation.x = state.currentRotX + swayX;
         pivot.scale.setScalar(state.entryScale);
 
         renderer.render(scene, camera);
@@ -416,6 +426,10 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
 
     let cancelled = false;
 
+    const nextIdentity = `${product.id}|${product.modelPreset}|${product.custom3D?.imageDataUrl?.slice(0, 64) ?? ''}|${product.custom3D?.imageDataUrl?.length ?? 0}`;
+    const isNewSource = lastImageIdentityRef.current !== nextIdentity;
+    lastImageIdentityRef.current = nextIdentity;
+
     const mountModel = (nextModel: THREE.Group) => {
       if (cancelled) {
         disposeObject3D(nextModel);
@@ -427,18 +441,23 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
       }
       state.currentModel = nextModel;
       state.pivot.add(nextModel);
-      state.entryScale = state.isSoftwareGl ? 1 : 0.88;
-      state.targetRotY = 0.45;
-      state.targetRotX = 0.14;
+      if (isNewSource) {
+        state.entryScale = state.isSoftwareGl ? 1 : 0.9;
+        state.targetRotY = 0;
+        state.targetRotX = 0.02;
+        state.currentRotY = 0;
+        state.currentRotX = 0.02;
+      }
       state.requestRender();
     };
 
-    if (product.modelPreset === 'CUSTOM_2D' && product.custom3D?.imageDataUrl) {
+    if (product.custom3D?.imageDataUrl) {
       const maxAniso = state.renderer.capabilities.getMaxAnisotropy();
       create2DTo3DMeshGroup(product.custom3D, maxAniso)
         .then(mountModel)
         .catch(() => {
-          mountModel(createProceduralModel('SN'));
+          const fallback = product.modelPreset === 'CUSTOM_2D' ? 'SN' : product.modelPreset;
+          mountModel(createProceduralModel(fallback));
         });
     } else {
       const preset = product.modelPreset === 'CUSTOM_2D' ? 'SN' : product.modelPreset;
@@ -456,6 +475,9 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
     product.custom3D?.removeBackground,
     product.custom3D?.depth,
     product.custom3D?.finish,
+    product.custom3D?.volumeMode,
+    product.custom3D?.reliefStrength,
+    product.custom3D?.bgTolerance,
   ]);
 
   if (webglUnavailable) {

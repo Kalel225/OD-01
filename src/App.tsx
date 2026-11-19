@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { OfflineIndicator } from './components/admin/PWAInstallButton';
+import { LoadingScreen } from './components/storefront/LoadingScreen';
 import { UniverseSlider } from './components/storefront/UniverseSlider';
 import { OD01StoreProvider } from './store/useOD01Store';
 
@@ -19,6 +20,7 @@ function readRouteFromLocation(): AppRoute {
 export default function App() {
   const [route, setRoute] = useState<AppRoute>(() => readRouteFromLocation());
   const [focusProductId, setFocusProductId] = useState<string | null>(null);
+  const [showIntroLoader, setShowIntroLoader] = useState<boolean>(true);
 
   useEffect(() => {
     const syncRoute = () => setRoute(readRouteFromLocation());
@@ -59,16 +61,26 @@ export default function App() {
     setFocusProductId(null);
   }, []);
 
+  const handleLoaderComplete = useCallback(() => {
+    setShowIntroLoader(false);
+  }, []);
+
   return (
     <OD01StoreProvider>
+      {showIntroLoader && <LoadingScreen onComplete={handleLoaderComplete} />}
+
       {route === 'ADMIN' ? (
-        <AdminDashboard onNavigateStorefront={navigateToStorefront} />
+        <AdminDashboard
+          onNavigateStorefront={navigateToStorefront}
+          hideLogoDuringIntro={showIntroLoader}
+        />
       ) : (
         <>
           <UniverseSlider
             initialFocusProductId={focusProductId}
             onClearFocusProduct={clearFocusProduct}
             onNavigateAdmin={navigateToAdmin}
+            hideLogoDuringIntro={showIntroLoader}
           />
           <OfflineIndicator />
         </>

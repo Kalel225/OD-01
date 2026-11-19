@@ -3,6 +3,7 @@ import { ArrowUpRight, Layers, Upload } from 'lucide-react';
 import { useOD01Store } from '../../store/useOD01Store';
 import {
   CustomFinish,
+  CustomVolumeMode,
   Product,
   SizeVariant,
   UNIVERSE_ORDER,
@@ -26,7 +27,7 @@ const PREFIX_OPTIONS_BY_UNIVERSE: Record<UniverseId, { code: string; label: stri
     { code: 'TS', label: 'TS — T-SHIRT' },
     { code: 'HD', label: 'HD — HOODIE' },
     { code: 'PT', label: 'PT — PANTALON' },
-    { code: 'WB', label: 'WB — COUPE-VENT' },
+    { code: 'WB', label: 'WB — VESTE / SHELL' },
     { code: 'SP', label: 'SP — SURVÊTEMENT' },
   ],
   ACCESSOIRES: [
@@ -67,20 +68,24 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
   const [universe, setUniverse] = useState<UniverseId>('CHAUSSURES');
   const [prefix, setPrefix] = useState<string>('SN');
   const [name, setName] = useState<string>('');
-  const [priceInput, setPriceInput] = useState<string>('48000');
+  const [priceInput, setPriceInput] = useState<string>('65000');
   const [composition, setComposition] = useState<string>(
-    'MATIÈRE TECHNIQUE ARCHIVE 100% · FINITION MAT INDUSTRIELLE'
+    'CUIR PLEINE FLEUR / TEXTILE TECHNIQUE · FINITION STUDIO'
   );
-  const [dimensions, setDimensions] = useState<string>('EDITION LIMITÉE · COTES STANDARD OD-01');
-  const [weight, setWeight] = useState<string>('450 G');
+  const [dimensions, setDimensions] = useState<string>('COTES STANDARD AUTHENTIQUES');
+  const [weight, setWeight] = useState<string>('460 G');
   const [description, setDescription] = useState<string>('');
   const [sizes, setSizes] = useState<SizeVariant[]>(() => defaultSizesForUniverse('CHAUSSURES'));
 
-  // 2D -> 3D Conversion State
+  // Volumetric 2D Photo -> 3D Mesh Reconstruction State
   const [imageDataUrl, setImageDataUrl] = useState<string>('');
+  const [isDraggingFile, setIsDraggingFile] = useState<boolean>(false);
   const [removeBackground, setRemoveBackground] = useState<boolean>(true);
-  const [depth, setDepth] = useState<number>(0.24);
-  const [finish, setFinish] = useState<CustomFinish>('MATTE');
+  const [bgTolerance, setBgTolerance] = useState<number>(48);
+  const [volumeMode, setVolumeMode] = useState<CustomVolumeMode>('SCULPTED');
+  const [depth, setDepth] = useState<number>(0.34);
+  const [reliefStrength, setReliefStrength] = useState<number>(0.55);
+  const [finish, setFinish] = useState<CustomFinish>('LEATHER');
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [publishedProduct, setPublishedProduct] = useState<Product | null>(null);
@@ -98,7 +103,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
   const handleImageFile = (file: File | undefined) => {
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      setErrorMsg('FORMAT NON SUPPORTÉ. IMPORTEZ UNE IMAGE PNG, JPG OU WEBP.');
+      setErrorMsg('FORMAT NON SUPPORTÉ. IMPORTEZ UNE PHOTO PNG, JPG OU WEBP.');
       return;
     }
     setErrorMsg(null);
@@ -111,22 +116,32 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
     reader.readAsDataURL(file);
   };
 
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDraggingFile(false);
+    const file = e.dataTransfer.files?.[0];
+    handleImageFile(file);
+  };
+
   const handleGenerateTestPrototype = () => {
     setErrorMsg(null);
-    const sampleUrl = generateSample2DPrototype(universe, `${autoSku.codePrefix}-${String(autoSku.codeNumber).padStart(2, '0')}`);
+    const sampleUrl = generateSample2DPrototype(
+      universe,
+      `${autoSku.codePrefix}-${String(autoSku.codeNumber).padStart(2, '0')}`
+    );
     setImageDataUrl(sampleUrl);
     if (!name.trim()) {
       setName(
         universe === 'CHAUSSURES'
-          ? `RUNNER PROTOTYPE ${String(autoSku.codeNumber).padStart(2, '0')}`
+          ? `NIKE AIR JORDAN 1 HIGH BLACK ${String(autoSku.codeNumber).padStart(2, '0')}`
           : universe === 'HABITS'
-            ? `GILET TECHNIQUE ${String(autoSku.codeNumber).padStart(2, '0')}`
-            : `POCHETTE MODULAIRE ${String(autoSku.codeNumber).padStart(2, '0')}`
+            ? `STONE ISLAND SHELL JACKET ${String(autoSku.codeNumber).padStart(2, '0')}`
+            : `PRADA CROSSBODY ARCHIVE ${String(autoSku.codeNumber).padStart(2, '0')}`
       );
     }
     if (!description.trim()) {
       setDescription(
-        'PIÈCE ARCHIVE CONVERTIE EN OBJET 3D VOLUMÉTRIQUE DEPUIS VISUEL 2D. CONSTRUCTION MONOCHROME HAUTE DENSITÉ CONÇUE POUR L’USAGE URBAIN.'
+        'MODÈLE RECONSTRUIT EN 3D VOLUMÉTRIQUE SCULPTÉE DEPUIS UNE SIMPLE PHOTO 2D. MAILLAGE FERMÉ 360°, DÉTOURAGE ADAPTATIF ET CARTES PBR GÉNÉRÉES EN TEMPS RÉEL.'
       );
     }
   };
@@ -139,13 +154,13 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
       sku: autoSku.sku,
       codePrefix: autoSku.codePrefix,
       codeNumber: autoSku.codeNumber,
-      name: name.trim().toUpperCase() || 'APERÇU PROTOTYPE 3D',
+      name: name.trim().toUpperCase() || 'APERÇU SCULPTURE 3D',
       universe,
       priceFcfa: parsedPrice,
       composition,
       dimensions,
       weight,
-      description: description || 'APERÇU DE CONVERSION 2D VERS 3D.',
+      description: description || 'RECONSTRUCTION VOLUMÉTRIQUE 3D DEPUIS PHOTO.',
       modelPreset: imageDataUrl ? 'CUSTOM_2D' : 'SN',
       custom3D: imageDataUrl
         ? {
@@ -153,6 +168,9 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
             removeBackground,
             depth,
             finish,
+            volumeMode,
+            reliefStrength,
+            bgTolerance,
           }
         : undefined,
       sizes,
@@ -173,6 +191,9 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
     removeBackground,
     depth,
     finish,
+    volumeMode,
+    reliefStrength,
+    bgTolerance,
     sizes,
   ]);
 
@@ -181,7 +202,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
     const cleanPrice = parseInt(priceInput.replace(/\D/g, ''), 10);
 
     if (!imageDataUrl) {
-      setErrorMsg('IMPORTEZ UNE IMAGE 2D (OU GÉNÉREZ UN PROTOTYPE TEST) POUR LA CONVERSION 3D.');
+      setErrorMsg('IMPORTEZ UNE PHOTO D’ARTICLE (OU GÉNÉREZ UN PROTOTYPE) POUR LA MODÉLISATION 3D.');
       return;
     }
     if (!name.trim()) {
@@ -208,13 +229,16 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
       weight: weight.trim().toUpperCase(),
       description:
         description.trim().toUpperCase() ||
-        'ARTICLE ARCHIVE OD-01 PUBLIÉ VIA LE MODULE ADMIN PWA 2D→3D.',
+        'ARTICLE RECONSTRUIT EN 3D VOLUMÉTRIQUE VIA LE STUDIO PHOTO→3D OD-01.',
       modelPreset: 'CUSTOM_2D',
       custom3D: {
         imageDataUrl,
         removeBackground,
         depth,
         finish,
+        volumeMode,
+        reliefStrength,
+        bgTolerance,
       },
       sizes,
       active: true,
@@ -231,38 +255,61 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
 
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-      {/* LEFT: Live 2D -> 3D Conversion Viewport */}
+      {/* LEFT: Live Photo -> Volumetric 3D Sculpting Engine */}
       <div className="flex flex-col border border-black bg-white lg:col-span-5">
         <div className="flex items-center justify-between border-b border-black px-4 py-3">
           <div className="flex items-center gap-2 text-[11px] font-bold">
             <Layers className="h-4 w-4 stroke-[1.5]" />
-            <span>MOTEUR 2D → 3D TEMPS RÉEL</span>
+            <span>STUDIO PHOTO → 3D VOLUMÉTRIQUE</span>
           </div>
           <span className="text-[10px] font-bold text-black tabular-nums">{autoSku.sku}</span>
         </div>
 
-        <div className="relative h-[340px] w-full bg-white lg:h-[400px]">
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDraggingFile(true);
+          }}
+          onDragLeave={() => setIsDraggingFile(false)}
+          onDrop={handleDrop}
+          className={`relative h-[340px] w-full bg-white transition-colors lg:h-[400px] ${
+            isDraggingFile ? 'bg-[#F7F7F7]' : 'bg-white'
+          }`}
+        >
           {imageDataUrl ? (
-            <ProductStage3D
-              product={previewProduct}
-              interactiveCatalogClick={false}
-            />
+            <>
+              <ProductStage3D
+                product={previewProduct}
+                interactiveCatalogClick={false}
+              />
+              <div className="pointer-events-none absolute bottom-2 left-3 right-3 flex items-center justify-between text-[9px] text-[#7A7A7A]">
+                <span>GLISSER POUR INSPECTER 360°</span>
+                <span>RENDU PHOTO 3D HD · 1024 PX</span>
+              </div>
+            </>
           ) : (
-            <div className="flex h-full flex-col items-center justify-center p-6 text-center">
-              <div className="border border-dashed border-black p-6">
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="flex h-full cursor-pointer flex-col items-center justify-center p-6 text-center"
+            >
+              <div
+                className={`border border-dashed p-6 transition-colors ${
+                  isDraggingFile ? 'border-black bg-white' : 'border-black'
+                }`}
+              >
                 <Upload className="mx-auto h-6 w-6 stroke-[1.5] text-black" />
                 <div className="mt-3 text-[11px] font-bold text-black">
-                  IMPORTEZ UNE IMAGE 2D (PNG / JPG / WEBP)
+                  GLISSEZ OU IMPORTEZ N’IMPORTE QUELLE PHOTO
                 </div>
                 <div className="mt-1.5 text-[10px] text-[#7A7A7A]">
-                  DÉTOURAGE AUTO · CARTE DE NORMALES SOBEL · EXTRUSION 360°
+                  DÉTOURAGE ADAPTATIF · SCULPTURE 3D FERMÉE · NORMALES & RUGOSITÉ PBR
                 </div>
               </div>
             </div>
           )}
         </div>
 
-        {/* Upload & 3D Extrusion Parameters */}
+        {/* Upload & Volumetric 3D Sculpting Parameters */}
         <div className="space-y-4 border-t border-black p-4">
           <input
             ref={fileInputRef}
@@ -278,37 +325,55 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
               onClick={() => fileInputRef.current?.click()}
               className="min-h-[42px] flex-1 bg-black px-3 text-[10px] font-bold text-white hover:bg-[#1A1A1A] whitespace-nowrap"
             >
-              IMPORTER IMAGE 2D
+              {imageDataUrl ? 'CHANGER LA PHOTO' : 'IMPORTER UNE PHOTO'}
             </button>
             <button
               type="button"
               onClick={handleGenerateTestPrototype}
               className="min-h-[42px] flex-1 border border-black bg-white px-3 text-[10px] font-bold text-black hover:bg-[#F7F7F7] whitespace-nowrap"
             >
-              GÉNÉRER PROTOTYPE TEST
+              PROTOTYPE STUDIO TEST
             </button>
           </div>
 
-          <div className="space-y-3 border-t border-[#E5E5E5] pt-3 text-[10px]">
-            <label className="flex cursor-pointer items-center justify-between">
-              <span className="font-bold">DÉTOURAGE AUTOMATIQUE DU FOND</span>
-              <input
-                type="checkbox"
-                checked={removeBackground}
-                onChange={(e) => setRemoveBackground(e.target.checked)}
-                className="h-4 w-4 accent-black"
-              />
-            </label>
+          <div className="space-y-3.5 border-t border-[#E5E5E5] pt-3 text-[10px]">
+            {/* 3D Volume Profile Mode */}
+            <div>
+              <div className="mb-1.5 font-bold">PROFIL DE SCULPTURE 3D</div>
+              <div className="grid grid-cols-3 gap-1">
+                {(
+                  [
+                    { id: 'SCULPTED', label: 'SCULPTÉ 3D' },
+                    { id: 'PUFFER', label: 'VOLUME +' },
+                    { id: 'RIGID', label: 'RIGIDE' },
+                  ] as const
+                ).map((mode) => (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    onClick={() => setVolumeMode(mode.id)}
+                    className={`min-h-[34px] border text-[10px] font-bold ${
+                      volumeMode === mode.id
+                        ? 'border-black bg-black text-white'
+                        : 'border-[#E5E5E5] bg-white text-black hover:border-black'
+                    }`}
+                  >
+                    {mode.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
+            {/* Volumetric Depth */}
             <div>
               <div className="mb-1 flex items-center justify-between">
-                <span className="font-bold">ÉPAISSEUR EXTRUSION 3D</span>
+                <span className="font-bold">VOLUME / ÉPAISSEUR 3D</span>
                 <span className="tabular-nums text-[#7A7A7A]">{Math.round(depth * 100)} MM</span>
               </div>
               <input
                 type="range"
-                min={0.08}
-                max={0.44}
+                min={0.14}
+                max={0.58}
                 step={0.02}
                 value={depth}
                 onChange={(e) => setDepth(parseFloat(e.target.value))}
@@ -316,21 +381,77 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
               />
             </div>
 
+            {/* Photometric Micro-Relief */}
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <span className="font-bold">RELIEF & TEXTURE PHOTO (PBR)</span>
+                <span className="tabular-nums text-[#7A7A7A]">{Math.round(reliefStrength * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={reliefStrength}
+                onChange={(e) => setReliefStrength(parseFloat(e.target.value))}
+                className="w-full accent-black"
+              />
+            </div>
+
+            {/* Adaptive Background Cutout + Tolerance */}
+            <div className="space-y-2 border-t border-[#E5E5E5] pt-2.5">
+              <label className="flex cursor-pointer items-center justify-between">
+                <span className="font-bold">DÉTOURAGE AUTO DU FOND</span>
+                <input
+                  type="checkbox"
+                  checked={removeBackground}
+                  onChange={(e) => setRemoveBackground(e.target.checked)}
+                  className="h-4 w-4 accent-black"
+                />
+              </label>
+
+              {removeBackground && (
+                <div>
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-[#7A7A7A]">SENSIBILITÉ DÉTOURAGE</span>
+                    <span className="tabular-nums text-[#7A7A7A]">{bgTolerance}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={18}
+                    max={95}
+                    step={2}
+                    value={bgTolerance}
+                    onChange={(e) => setBgTolerance(parseInt(e.target.value, 10))}
+                    className="w-full accent-black"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* PBR Material Finish */}
             <div>
               <div className="mb-1.5 font-bold">FINITION MATÉRIAU PBR</div>
-              <div className="grid grid-cols-3 gap-1">
-                {(['MATTE', 'SATIN', 'METALLIC'] as const).map((f) => (
+              <div className="grid grid-cols-4 gap-1">
+                {(
+                  [
+                    { id: 'MATTE', label: 'MAT' },
+                    { id: 'SATIN', label: 'SATIN' },
+                    { id: 'LEATHER', label: 'CUIR' },
+                    { id: 'METALLIC', label: 'MÉTAL' },
+                  ] as const
+                ).map((f) => (
                   <button
-                    key={f}
+                    key={f.id}
                     type="button"
-                    onClick={() => setFinish(f)}
+                    onClick={() => setFinish(f.id)}
                     className={`min-h-[34px] border text-[10px] font-bold ${
-                      finish === f
+                      finish === f.id
                         ? 'border-black bg-black text-white'
                         : 'border-[#E5E5E5] bg-white text-black hover:border-black'
                     }`}
                   >
-                    {f === 'MATTE' ? 'MAT' : f === 'SATIN' ? 'SATIN' : 'MÉTAL'}
+                    {f.label}
                   </button>
                 ))}
               </div>
@@ -394,7 +515,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="EX: BASKET MONOLITHE 02"
+              placeholder="EX: NIKE DUNK LOW BLACK / BALENCIAGA TRACK"
               className="h-11 w-full border border-black bg-white px-3 text-[11px] placeholder:text-[#7A7A7A]"
             />
           </div>
@@ -502,7 +623,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
                 ARTICLE PUBLIÉ : {publishedProduct.sku} — {publishedProduct.name}
               </div>
               <div className="mt-0.5 text-[10px] text-[#7A7A7A]">
-                OBJET 3D DISPONIBLE IMMÉDIATEMENT SUR LA BOUTIQUE ({publishedProduct.universe})
+                OBJET 3D VOLUMÉTRIQUE DISPONIBLE IMMÉDIATEMENT SUR LA BOUTIQUE ({publishedProduct.universe})
               </div>
             </div>
             <button

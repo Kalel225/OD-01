@@ -10,9 +10,11 @@ import {
 } from '../types/od01';
 
 const STORAGE_KEYS = {
-  CART: 'od01_unified_cart_v1',
-  PRODUCTS: 'od01_catalog_products_v1',
-  ORDERS: 'od01_cod_orders_v1',
+  CART: 'od01_unified_cart_v2',
+  PRODUCTS: 'od01_catalog_products_v3',
+  LEGACY_PRODUCTS_V2: 'od01_catalog_products_v2',
+  LEGACY_PRODUCTS_V1: 'od01_catalog_products_v1',
+  ORDERS: 'od01_cod_orders_v2',
 } as const;
 
 function readStorage<T>(key: string, fallback: T): T {
@@ -24,6 +26,19 @@ function readStorage<T>(key: string, fallback: T): T {
   } catch {
     return fallback;
   }
+}
+
+function loadInitialProducts(): Product[] {
+  const existingV3 = readStorage<Product[] | null>(STORAGE_KEYS.PRODUCTS, null);
+  if (existingV3 && existingV3.length > 0) {
+    return existingV3;
+  }
+  // Preserve any custom photo-to-3D articles added earlier while upgrading the 12 core SKUs to photorealistic studio items
+  const legacyV2 = readStorage<Product[]>(STORAGE_KEYS.LEGACY_PRODUCTS_V2, []);
+  const legacyV1 = readStorage<Product[]>(STORAGE_KEYS.LEGACY_PRODUCTS_V1, []);
+  const legacySource = legacyV2.length > 0 ? legacyV2 : legacyV1;
+  const customOnly = legacySource.filter((p) => p.isCustom);
+  return [...customOnly, ...SEED_PRODUCTS];
 }
 
 function writeStorage<T>(key: string, value: T): void {
@@ -58,6 +73,12 @@ interface OD01StoreValue {
   totalCartFcfa: number;
   addToCart: (item: Omit<CartItem, 'quantity'>) => void;
   updateCartQuantity: (productId: string, sizeLabel: string, delta: number) => void;
+  updateCartItemSize: (
+    productId: string,
+    currentSizeLabel: string,
+    nextSizeLabel: string,
+    nextSizeCm: string
+  ) => void;
   removeFromCart: (productId: string, sizeLabel: string) => void;
   clearCart: () => void;
 
@@ -71,9 +92,7 @@ interface OD01StoreValue {
 const OD01StoreContext = createContext<OD01StoreValue | null>(null);
 
 export const OD01StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [products, setProducts] = useState<Product[]>(() =>
-    readStorage<Product[]>(STORAGE_KEYS.PRODUCTS, SEED_PRODUCTS)
-  );
+  const [products, setProducts] = useState<Product[]>(() => loadInitialProducts());
   const [cart, setCart] = useState<CartItem[]>(() =>
     readStorage<CartItem[]>(STORAGE_KEYS.CART, [])
   );
@@ -193,6 +212,48 @@ export const OD01StoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           )
           .filter((item) => item.quantity > 0)
       );
+    },
+    []
+  );
+
+  const updateCartItemSize = useCallback(
+    (
+      productId: string,
+      currentSizeLabel: string,
+      nextSizeLabel: string,
+      nextSizeCm: string
+    ) => {
+      if (currentSizeLabel === nextSizeLabel) return;
+      setCart((prev) => {
+        const sourceIdx = prev.findIndex(
+          (item) =>
+            item.productId === productId && item.sizeLabel === currentSizeLabel
+        );
+        if (sourceIdx < 0) return prev;
+
+        const targetIdx = prev.findIndex(
+          (item) =>
+            item.productId === productId && item.sizeLabel === nextSizeLabel
+        );
+
+        const next = [...prev];
+        if (targetIdx >= 0 && targetIdx !== sourceIdx) {
+          next[targetIdx] = {
+            ...next[targetIdx],
+            sizeCm: nextSizeCm,
+            quantity: next[targetIdx].quantity + next[sourceIdx].quantity,
+          };
+          next.splice(sourceIdx, 1);
+          return next;
+        }
+
+        next[sourceIdx] = {
+          ...next[sourceIdx],
+          sizeLabel: nextSizeLabel,
+          sizeCm: nextSizeCm,
+        };
+        return next;
+      });
     },
     []
   );
@@ -347,6 +408,7 @@ export const OD01StoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       totalCartFcfa,
       addToCart,
       updateCartQuantity,
+      updateCartItemSize,
       removeFromCart,
       clearCart,
       orders,
@@ -367,6 +429,7 @@ export const OD01StoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       totalCartFcfa,
       addToCart,
       updateCartQuantity,
+      updateCartItemSize,
       removeFromCart,
       clearCart,
       orders,
@@ -398,6 +461,7 @@ export function useCartStore() {
     totalFcfa: store.totalCartFcfa,
     addToCart: store.addToCart,
     updateQuantity: store.updateCartQuantity,
+    updateItemSize: store.updateCartItemSize,
     removeItem: store.removeFromCart,
     clearCart: store.clearCart,
     placeCodOrder: store.placeCodOrder,

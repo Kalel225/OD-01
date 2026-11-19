@@ -7,12 +7,16 @@ import { OfflineIndicator, PWAInstallButton } from './PWAInstallButton';
 
 interface AdminDashboardProps {
   onNavigateStorefront: (focusProductId?: string) => void;
+  hideLogoDuringIntro?: boolean;
 }
 
 type AdminTab = 'ANALYTICS' | 'ADD_3D' | 'CATALOG';
 
+const ADMIN_LOGO_CHARS = ['O', 'D', '-', '0', '1'] as const;
+
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onNavigateStorefront,
+  hideLogoDuringIntro = false,
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('ANALYTICS');
 
@@ -22,8 +26,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       <header className="sticky top-0 z-30 border-b border-black bg-white px-5 md:px-8">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4">
           <div className="flex items-center gap-4 min-w-0">
-            <span className="text-[13px] font-bold tracking-[0.16em] whitespace-nowrap">
-              OD-01
+            <span
+              className={`inline-flex items-center gap-[0.16em] text-[13px] font-bold leading-none tracking-normal whitespace-nowrap ${
+                hideLogoDuringIntro ? 'opacity-0' : 'opacity-100'
+              }`}
+            >
+              {ADMIN_LOGO_CHARS.map((char, idx) => (
+                <span
+                  key={`${char}-${idx}`}
+                  data-od01-nav-char={idx}
+                  className="inline-block leading-none tracking-normal"
+                >
+                  {char}
+                </span>
+              ))}
             </span>
             <span className="hidden text-[10px] text-[#7A7A7A] sm:inline whitespace-nowrap">
               / ADMIN PWA

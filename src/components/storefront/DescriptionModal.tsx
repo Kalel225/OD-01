@@ -24,10 +24,10 @@ export const DescriptionModal: React.FC<DescriptionModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg border border-black bg-white"
+        className="w-full max-w-lg bg-white"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-black px-5 py-3.5">
+        <div className="flex items-center justify-between px-6 pt-5 pb-3">
           <div>
             <div className="text-[10px] text-[#7A7A7A] tabular-nums">{product.sku}</div>
             <h2 className="mt-0.5 text-[12px] font-bold text-black">{product.name}</h2>
@@ -36,33 +36,33 @@ export const DescriptionModal: React.FC<DescriptionModalProps> = ({
             type="button"
             onClick={onClose}
             aria-label="Fermer la fiche technique"
-            className="flex h-10 w-10 items-center justify-center border border-transparent text-black hover:border-black"
+            className="flex h-10 w-10 items-center justify-center text-black transition-opacity hover:opacity-50"
           >
             <X className="h-4 w-4 stroke-[1.5]" />
           </button>
         </div>
 
-        <div className="max-h-[72dvh] space-y-5 overflow-y-auto p-5 text-[11px] leading-relaxed">
+        <div className="max-h-[72dvh] space-y-6 overflow-y-auto px-6 py-3 text-[11px] leading-relaxed">
           <p className="text-black">{product.description}</p>
 
-          <div className="divide-y divide-[#E5E5E5] border-t border-b border-[#E5E5E5]">
-            <div className="grid grid-cols-3 gap-2 py-2.5">
+          <div className="space-y-3 bg-[#F7F7F7] p-4">
+            <div className="grid grid-cols-3 gap-2">
               <span className="text-[#7A7A7A]">UNIVERS</span>
               <span className="col-span-2 text-black">{product.universe}</span>
             </div>
-            <div className="grid grid-cols-3 gap-2 py-2.5">
+            <div className="grid grid-cols-3 gap-2">
               <span className="text-[#7A7A7A]">COMPOSITION</span>
               <span className="col-span-2 text-black">{product.composition}</span>
             </div>
-            <div className="grid grid-cols-3 gap-2 py-2.5">
+            <div className="grid grid-cols-3 gap-2">
               <span className="text-[#7A7A7A]">COTES</span>
               <span className="col-span-2 text-black">{product.dimensions}</span>
             </div>
-            <div className="grid grid-cols-3 gap-2 py-2.5">
+            <div className="grid grid-cols-3 gap-2">
               <span className="text-[#7A7A7A]">POIDS</span>
               <span className="col-span-2 text-black">{product.weight}</span>
             </div>
-            <div className="grid grid-cols-3 gap-2 py-2.5">
+            <div className="grid grid-cols-3 gap-2">
               <span className="text-[#7A7A7A]">PRIX NET</span>
               <span className="col-span-2 font-bold text-black tabular-nums">
                 {formatFcfa(product.priceFcfa)} · PAIEMENT À LA LIVRAISON
@@ -71,14 +71,18 @@ export const DescriptionModal: React.FC<DescriptionModalProps> = ({
           </div>
 
           <div>
-            <div className="mb-2 text-[10px] font-bold text-black">
+            <div className="mb-2.5 text-[10px] font-bold text-black">
               CORRESPONDANCE TAILLES / CENTIMÈTRES (CM)
             </div>
-            <div className="grid grid-cols-2 gap-px border border-[#E5E5E5] bg-[#E5E5E5] sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {product.sizes.map((s) => (
-                <div key={s.label} className="bg-white p-2.5">
+                <div key={s.label} className="bg-[#F7F7F7] p-2.5">
                   <div className="flex items-center justify-between">
-                    <span className={`font-bold ${s.stock === 0 ? 'line-through text-[#7A7A7A]' : 'text-black'}`}>
+                    <span
+                      className={`font-bold ${
+                        s.stock === 0 ? 'text-[#7A7A7A] line-through' : 'text-black'
+                      }`}
+                    >
                       {s.label}
                     </span>
                     <span className="text-[10px] text-[#7A7A7A] tabular-nums">
@@ -92,7 +96,7 @@ export const DescriptionModal: React.FC<DescriptionModalProps> = ({
           </div>
         </div>
 
-        <div className="border-t border-[#E5E5E5] p-4">
+        <div className="px-6 pt-3 pb-5">
           <button
             type="button"
             onClick={onClose}

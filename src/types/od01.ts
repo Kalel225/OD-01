@@ -33,13 +33,18 @@ export type ModelPreset =
   | 'BL'
   | 'CUSTOM_2D';
 
-export type CustomFinish = 'MATTE' | 'SATIN' | 'METALLIC';
+export type CustomFinish = 'MATTE' | 'SATIN' | 'LEATHER' | 'METALLIC';
+
+export type CustomVolumeMode = 'SCULPTED' | 'RIGID' | 'PUFFER';
 
 export interface Custom3DConfig {
   imageDataUrl: string;
   removeBackground: boolean;
   depth: number;
   finish: CustomFinish;
+  volumeMode?: CustomVolumeMode;
+  reliefStrength?: number;
+  bgTolerance?: number;
 }
 
 export interface Product {

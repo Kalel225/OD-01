@@ -216,9 +216,9 @@ export const UniverseStage3D: React.FC<UniverseStage3DProps> = ({
         currentModel: null,
         loadedKey: '',
         targetRotY: 0,
-        targetRotX: 0.08,
+        targetRotX: 0.02,
         currentRotY: 0,
-        currentRotX: 0.08,
+        currentRotX: 0.02,
       };
     };
 
@@ -325,8 +325,8 @@ export const UniverseStage3D: React.FC<UniverseStage3DProps> = ({
         const shadowMat = node.shadow.material as THREE.MeshBasicMaterial;
         shadowMat.opacity = Math.max(0.1, 1 - bgBlend * 0.84 - Math.max(0, absOff - 1) * 0.1);
 
-        // Firmly grounded on an invisible motorized turntable (zero floating bob, pure 360° spin)
-        node.pivot.position.y = 0.02;
+        // Simple continuous 360° rotation on itself
+        node.pivot.position.y = 0.04;
         const turntable = node.currentModel?.userData?.turntable360 as
           | Turntable360Controller
           | undefined;
@@ -339,7 +339,7 @@ export const UniverseStage3D: React.FC<UniverseStage3DProps> = ({
             0
           );
         } else {
-          node.pivot.rotation.y = node.currentRotY - Math.sign(offset) * bgBlend * 0.12;
+          node.pivot.rotation.y = node.currentRotY;
           node.pivot.rotation.x = node.currentRotX;
         }
       }
@@ -380,14 +380,14 @@ export const UniverseStage3D: React.FC<UniverseStage3DProps> = ({
         const dt = Math.min(0.05, Math.max(0.001, (now - lastTime) / 1000));
         lastTime = now;
 
-        // Continuous real-time 360° invisible-turntable rotation for every exposed article
+        // Simple continuous 360° rotation on itself for every exposed article
         if (!isSoftwareGl && !prefersReducedMotion) {
           idleClock += dt;
           for (let i = 0; i < 3; i++) {
             const node = slotNodes[i];
             const isDraggedSlot = isActivelyRotating && i === activeIndexRef.current;
             if (!isDraggedSlot) {
-              const spinSpeed = i === engine.targetIndex ? 0.56 : 0.32;
+              const spinSpeed = i === engine.targetIndex ? 0.55 : 0.35;
               node.targetRotY += dt * spinSpeed;
             }
           }
@@ -751,20 +751,11 @@ export const UniverseStage3D: React.FC<UniverseStage3DProps> = ({
         if (nextModel) {
           node.currentModel = nextModel;
           node.pivot.add(nextModel);
-
-          // Ground contact shadow directly beneath the sole / hem / base of the 3D object
-          const bbox = new THREE.Box3().setFromObject(nextModel);
-          if (!bbox.isEmpty()) {
-            node.shadow.position.y = Math.min(-0.62, bbox.min.y - 0.04);
-          } else {
-            node.shadow.position.y = -1.18;
-          }
-
-          const initialYaw = idx === activeIndexRef.current ? 0.35 : idx * 1.1;
-          node.targetRotY = initialYaw;
-          node.targetRotX = 0.08;
-          node.currentRotY = initialYaw;
-          node.currentRotX = 0.08;
+          node.shadow.position.y = -1.2;
+          node.targetRotY = 0;
+          node.targetRotX = 0.02;
+          node.currentRotY = 0;
+          node.currentRotX = 0.02;
         }
         engine.requestRender();
       };

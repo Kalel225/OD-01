@@ -1,5 +1,5 @@
-import React, { useMemo, useRef, useState } from 'react';
-import { ArrowUpRight, Layers, RotateCw, Upload, X } from 'lucide-react';
+import React, { Suspense, useMemo, useRef, useState } from 'react';
+import { ArrowUpRight, Box, Layers, RefreshCw, RotateCw, Upload, X } from 'lucide-react';
 import { useOD01Store } from '../../store/useOD01Store';
 import {
   CustomFinish,
@@ -13,31 +13,55 @@ import {
 import { ProductStage3D } from '../three/ProductStage3D';
 import { generateSample360Views } from '../three/imageTo3D';
 
+const ProductTurntable3D = React.lazy(() => import('../ProductTurntable3D'));
+
 interface AddProduct3DFormProps {
   onViewProductInStore: (productId: string) => void;
 }
 
-type SideSlotKey = 'front' | 'right' | 'back' | 'left';
+type SideSlotKey = 'front' | 'left' | 'right' | 'back';
 
 interface SideSlotMeta {
   key: SideSlotKey;
   label: string;
+  subtitle: string;
   angleDeg: number;
   required?: boolean;
 }
 
 const SIDE_SLOTS: SideSlotMeta[] = [
-  { key: 'front', label: '0° FACE *', angleDeg: 0, required: true },
-  { key: 'back', label: '180° DOS', angleDeg: 180 },
-  { key: 'right', label: '90° DROIT', angleDeg: 90 },
-  { key: 'left', label: '270° GAUCHE', angleDeg: 270 },
+  {
+    key: 'front',
+    label: 'VUE PRINCIPALE *',
+    subtitle: 'FACE / 3/4 AVANT',
+    angleDeg: 0,
+    required: true,
+  },
+  {
+    key: 'left',
+    label: 'PROFIL GAUCHE',
+    subtitle: 'OPTIONNEL · VUE 2',
+    angleDeg: 270,
+  },
+  {
+    key: 'right',
+    label: 'PROFIL DROIT',
+    subtitle: 'OPTIONNEL · VUE 3',
+    angleDeg: 90,
+  },
+  {
+    key: 'back',
+    label: 'TALON / ARRIÈRE',
+    subtitle: 'OPTIONNEL · VUE 4',
+    angleDeg: 180,
+  },
 ];
 
 const EMPTY_SIDES: Record<SideSlotKey, string> = {
   front: '',
+  left: '',
   right: '',
   back: '',
-  left: '',
 };
 
 const PREFIX_OPTIONS_BY_UNIVERSE: Record<UniverseId, { code: string; label: string }[]> = {
@@ -100,7 +124,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
 export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
   onViewProductInStore,
 }) => {
-  const { products, addProduct } = useOD01Store();
+  const { products, addProduct, triggerProduct3DGeneration } = useOD01Store();
   const singleSlotInputRef = useRef<HTMLInputElement | null>(null);
   const batchInputRef = useRef<HTMLInputElement | null>(null);
   const activeUploadSlotRef = useRef<SideSlotKey>('front');
@@ -117,7 +141,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
   const [description, setDescription] = useState<string>('');
   const [sizes, setSizes] = useState<SizeVariant[]>(() => defaultSizesForUniverse('CHAUSSURES'));
 
-  // Multi-Angle 360° Studio State (supports 1 photo, 2 opposite sides, 4 cardinal sides, or up to 12-photo sequence)
+  // Multi-Angle 360° Studio State (index 0 = mandatory primary view, indices 1..3 = optional secondary views)
   const [sideViews, setSideViews] = useState<Record<SideSlotKey, string>>(EMPTY_SIDES);
   const [batchSequence, setBatchSequence] = useState<string[]>([]);
   const [isDraggingFile, setIsDraggingFile] = useState<boolean>(false);
@@ -128,16 +152,33 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
   const [reliefStrength] = useState<number>(0.55);
   const [finish, setFinish] = useState<CustomFinish>('LEATHER');
 
+  // Toggle to trigger async `.glb` Turntable 3D reconstruction on save
+  const [generateTurntable3D, setGenerateTurntable3D] = useState<boolean>(true);
+
   // Interactive 360° studio preview controls
   const [forcedYawRad, setForcedYawRad] = useState<number | null>(null);
   const [forcedYawNonce, setForcedYawNonce] = useState<number>(0);
   const [liveAngleDeg, setLiveAngleDeg] = useState<number>(0);
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [publishedProduct, setPublishedProduct] = useState<Product | null>(null);
+  const [publishedProductId, setPublishedProductId] = useState<string | null>(null);
+
+  const publishedProduct = useMemo(
+    () => (publishedProductId ? products.find((p) => p.id === publishedProductId) ?? null : null),
+    [products, publishedProductId]
+  );
 
   // Automatic sequential SKU computation (`OD-01 / XX-NN`)
   const autoSku = useMemo(() => generateNextSku(products, prefix), [products, prefix]);
+
+  // Structured product.images array: [primary (face/3/4), left, right, back] (1 to 4 URLs)
+  const structuredImages = useMemo<string[]>(() => {
+    const ordered = [sideViews.front, sideViews.left, sideViews.right, sideViews.back].filter(
+      (u) => Boolean(u)
+    );
+    if (ordered.length > 0) return ordered.slice(0, 4);
+    return batchSequence.slice(0, 4);
+  }, [sideViews, batchSequence]);
 
   // Clockwise ordered 360° sequence derived from either batch import (5–12 views) or the 4 cardinal side slots
   const orderedViews360 = useMemo<string[]>(() => {
@@ -149,7 +190,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
     );
   }, [batchSequence, sideViews]);
 
-  const primaryImageUrl = orderedViews360[0] ?? '';
+  const primaryImageUrl = structuredImages[0] ?? orderedViews360[0] ?? '';
 
   // Compute quick-angle inspection buttons dynamically matching the active views
   const quickAngleButtons = useMemo(() => {
@@ -342,6 +383,11 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
           }
         : undefined,
       sizes,
+      images: structuredImages,
+      model3dUrl: null,
+      model3dStatus: 'none',
+      model3dJobId: null,
+      model3dError: null,
       active: true,
       isCustom: true,
       createdAt: new Date().toISOString(),
@@ -356,6 +402,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
     weight,
     description,
     primaryImageUrl,
+    structuredImages,
     orderedViews360,
     removeBackground,
     depth,
@@ -371,7 +418,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
     const cleanPrice = parseInt(priceInput.replace(/\D/g, ''), 10);
 
     if (!primaryImageUrl) {
-      setErrorMsg('IMPORTEZ AU MOINS LA PHOTO DE FACE (0°) OU UN PROTOTYPE 360°.');
+      setErrorMsg('IMPORTEZ AU MOINS LA PHOTO PRINCIPALE (FACE / 3/4 AVANT) OU UN PROTOTYPE 360°.');
       return;
     }
     if (!name.trim()) {
@@ -385,8 +432,11 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
 
     setErrorMsg(null);
 
+    const newProductId = `prod-custom-${Date.now()}`;
+    const imagesPayload = structuredImages.length > 0 ? structuredImages : [primaryImageUrl];
+
     const newProduct: Product = {
-      id: `prod-custom-${Date.now()}`,
+      id: newProductId,
       sku: autoSku.sku,
       codePrefix: autoSku.codePrefix,
       codeNumber: autoSku.codeNumber,
@@ -398,7 +448,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
       weight: weight.trim().toUpperCase(),
       description:
         description.trim().toUpperCase() ||
-        'ARTICLE PUBLIÉ VIA LE STUDIO MULTI-VUES 360° OD-01.',
+        'ARTICLE PUBLIÉ VIA LE STUDIO MULTI-ANGLES 3D OD-01.',
       modelPreset: 'CUSTOM_2D',
       custom3D: {
         imageDataUrl: primaryImageUrl,
@@ -411,13 +461,23 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
         bgTolerance,
       },
       sizes,
+      images: imagesPayload,
+      model3dUrl: null,
+      model3dStatus: generateTurntable3D ? 'pending' : 'none',
+      model3dJobId: null,
+      model3dError: null,
       active: true,
       isCustom: true,
       createdAt: new Date().toISOString(),
     };
 
     addProduct(newProduct);
-    setPublishedProduct(newProduct);
+    setPublishedProductId(newProductId);
+
+    if (generateTurntable3D) {
+      void triggerProduct3DGeneration(newProductId, imagesPayload);
+    }
+
     setName('');
     setDescription('');
     setSideViews(EMPTY_SIDES);
@@ -536,10 +596,10 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
             }}
           />
 
-          {/* 4-Side Dedicated Upload Slots (Face 0°, Dos 180°, Droit 90°, Gauche 270°) */}
+          {/* 4-Angle Dedicated Upload Slots: 1 Primary (mandatory) + 3 Secondary (optional) */}
           <div>
             <div className="mb-2 flex items-center justify-between text-[10px]">
-              <span className="font-bold">PHOTOS PAR CÔTÉ (2 OU 4 VUES 360°)</span>
+              <span className="font-bold">PHOTOS MULTI-ANGLES (1 PRINCIPALE + 3 OPTIONNELLES)</span>
               {batchSequence.length >= 5 && (
                 <button
                   type="button"
@@ -580,7 +640,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
                       <div className="min-w-0">
                         <div className="truncate text-[9px] font-bold text-black">{slot.label}</div>
                         <div className="truncate text-[9px] text-[#7A7A7A]">
-                          {imgUrl ? 'CHARGÉE · MODIFIER' : 'AJOUTER'}
+                          {imgUrl ? 'CHARGÉE · MODIFIER' : slot.subtitle}
                         </div>
                       </div>
                     </button>
@@ -863,6 +923,27 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
           </div>
         </div>
 
+        {/* Turntable 3D (.glb) Generation Toggle */}
+        <div className="border border-black bg-[#F7F7F7] p-4">
+          <label className="flex cursor-pointer items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-[11px] font-bold text-black">
+                <Box className="h-4 w-4 shrink-0 stroke-[1.5]" />
+                <span>GÉNÉRER LA VUE 3D (TURNTABLE)</span>
+              </div>
+              <div className="mt-1 text-[10px] text-[#7A7A7A]">
+                DÉTOURAGE BIREFNET + RECONSTRUCTION .GLB PBR ASYNCHRONE · ROTATION 360° EN 11S
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={generateTurntable3D}
+              onChange={(e) => setGenerateTurntable3D(e.target.checked)}
+              className="h-5 w-5 shrink-0 accent-black"
+            />
+          </label>
+        </div>
+
         {errorMsg && (
           <div className="border border-black bg-black px-3.5 py-2.5 text-[10px] text-white">
             {errorMsg}
@@ -870,23 +951,105 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
         )}
 
         {publishedProduct && (
-          <div className="flex flex-wrap items-center justify-between gap-3 border border-black bg-[#F7F7F7] p-4">
-            <div className="text-[11px]">
-              <div className="font-bold">
-                ARTICLE PUBLIÉ : {publishedProduct.sku} — {publishedProduct.name}
+          <div className="space-y-3 border border-black bg-[#F7F7F7] p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="text-[11px]">
+                <div className="font-bold">
+                  ARTICLE PUBLIÉ : {publishedProduct.sku} — {publishedProduct.name}
+                </div>
+                <div className="mt-0.5 text-[10px] text-[#7A7A7A]">
+                  UNIVERS {publishedProduct.universe} · {publishedProduct.images.length} PHOTO(S)
+                </div>
               </div>
-              <div className="mt-0.5 text-[10px] text-[#7A7A7A]">
-                OBJET 3D VOLUMÉTRIQUE DISPONIBLE IMMÉDIATEMENT SUR LA BOUTIQUE ({publishedProduct.universe})
-              </div>
+              <button
+                type="button"
+                onClick={() => onViewProductInStore(publishedProduct.id)}
+                className="flex min-h-[38px] items-center gap-1.5 bg-black px-4 text-[10px] font-bold text-white hover:bg-[#1A1A1A]"
+              >
+                <span>VOIR SUR LA BOUTIQUE</span>
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => onViewProductInStore(publishedProduct.id)}
-              className="flex min-h-[40px] items-center gap-1.5 bg-black px-4 text-[10px] font-bold text-white hover:bg-[#1A1A1A]"
-            >
-              <span>VOIR EN 3D SUR LA BOUTIQUE</span>
-              <ArrowUpRight className="h-3.5 w-3.5" />
-            </button>
+
+            {/* Live .glb 3D Generation Status & 4-Second Polling Readout */}
+            <div className="border-t border-[#E5E5E5] pt-3">
+              {(publishedProduct.model3dStatus === 'pending' ||
+                publishedProduct.model3dStatus === 'processing') && (
+                <div className="flex items-center justify-between gap-3 border border-black bg-white px-3 py-2.5 text-[10px]">
+                  <div className="flex items-center gap-2 font-bold text-black">
+                    <span className="inline-block h-2 w-2 animate-pulse bg-black" />
+                    <span>RECONSTRUCTION 3D EN COURS...</span>
+                  </div>
+                  <span className="text-[#7A7A7A] tabular-nums">SUIVI AUTO · 4S</span>
+                </div>
+              )}
+
+              {publishedProduct.model3dStatus === 'none' && (
+                <div className="flex flex-wrap items-center justify-between gap-2 border border-[#E5E5E5] bg-white px-3 py-2.5 text-[10px]">
+                  <span className="text-[#7A7A7A]">MODÈLE .GLB NON GÉNÉRÉ</span>
+                  <button
+                    type="button"
+                    onClick={() => void triggerProduct3DGeneration(publishedProduct.id)}
+                    className="min-h-[34px] bg-black px-3 text-[10px] font-bold text-white hover:bg-[#1A1A1A]"
+                  >
+                    GÉNÉRER LA VUE 3D (TURNTABLE)
+                  </button>
+                </div>
+              )}
+
+              {publishedProduct.model3dStatus === 'ready' && publishedProduct.model3dUrl && (
+                <div className="space-y-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="border border-black bg-black px-2 py-0.5 text-[10px] font-bold text-white">
+                      MODÈLE 3D .GLB PRÊT (TURNTABLE 360°)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void triggerProduct3DGeneration(publishedProduct.id)}
+                      className="flex min-h-[34px] items-center gap-1.5 border border-black bg-white px-3 text-[10px] font-bold text-black hover:bg-black hover:text-white"
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                      <span>RÉGÉNÉRER</span>
+                    </button>
+                  </div>
+                  <div className="h-[260px] w-full border border-black bg-white">
+                    <Suspense
+                      fallback={
+                        <div className="flex h-full items-center justify-center text-[10px] text-[#7A7A7A]">
+                          CHARGEMENT DU MODÈLE 3D...
+                        </div>
+                      }
+                    >
+                      <ProductTurntable3D
+                        images={publishedProduct.images}
+                        model3dUrl={publishedProduct.model3dUrl}
+                        model3dStatus={publishedProduct.model3dStatus}
+                        alt={publishedProduct.name}
+                      />
+                    </Suspense>
+                  </div>
+                </div>
+              )}
+
+              {publishedProduct.model3dStatus === 'failed' && (
+                <div className="flex flex-wrap items-center justify-between gap-3 border border-black bg-white px-3 py-2.5 text-[10px]">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-black">ÉCHEC DE RECONSTRUCTION 3D</div>
+                    <div className="mt-0.5 text-[#7A7A7A]">
+                      {publishedProduct.model3dError || 'Erreur inconnue lors de la génération .glb.'}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void triggerProduct3DGeneration(publishedProduct.id)}
+                    className="flex min-h-[34px] shrink-0 items-center gap-1.5 bg-black px-3 text-[10px] font-bold text-white hover:bg-[#1A1A1A]"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    <span>RÉESSAYER</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -894,7 +1057,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
           type="submit"
           className="min-h-[46px] w-full bg-black text-[11px] font-bold tracking-[0.14em] text-white hover:bg-[#1A1A1A]"
         >
-          PUBLIER L’ARTICLE 3D SUR LE SITE ({autoSku.sku})
+          PUBLIER L’ARTICLE SUR LE SITE ({autoSku.sku})
         </button>
       </form>
     </div>

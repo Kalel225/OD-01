@@ -215,10 +215,10 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
       pivot,
       shadowPlane,
       currentModel: null as THREE.Group | null,
-      targetRotY: 0.35,
-      targetRotX: 0.08,
-      currentRotY: 0.35,
-      currentRotX: 0.08,
+      targetRotY: 0,
+      targetRotX: 0.02,
+      currentRotY: 0,
+      currentRotX: 0.02,
       entryScale: 0.92,
       pauseAutoSpinUntil: 0,
       requestRender: () => {},
@@ -471,7 +471,7 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
     if (delta > Math.PI) delta -= twoPi;
     if (delta < -Math.PI) delta += twoPi;
     state.targetRotY += delta;
-    state.targetRotX = 0.08;
+    state.targetRotX = 0.02;
     state.pauseAutoSpinUntil = performance.now() + 4000;
     state.requestRender();
   }, [forcedYawRad, forcedYawNonce]);
@@ -502,20 +502,14 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
       }
       state.currentModel = nextModel;
       state.pivot.add(nextModel);
-
-      const bbox = new THREE.Box3().setFromObject(nextModel);
-      if (!bbox.isEmpty()) {
-        state.shadowPlane.position.y = Math.min(-0.62, bbox.min.y - 0.04);
-      } else {
-        state.shadowPlane.position.y = -1.18;
-      }
+      state.shadowPlane.position.y = -1.22;
 
       if (isNewSource) {
         state.entryScale = state.isSoftwareGl ? 1 : 0.9;
-        state.targetRotY = 0.35;
-        state.targetRotX = 0.08;
-        state.currentRotY = 0.35;
-        state.currentRotX = 0.08;
+        state.targetRotY = 0;
+        state.targetRotX = 0.02;
+        state.currentRotY = 0;
+        state.currentRotX = 0.02;
       }
       state.requestRender();
     };

@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useCartStore, useOD01Store } from '../../store/useOD01Store';
 import { Product, UNIVERSE_ORDER, UniverseId } from '../../types/od01';
@@ -8,6 +9,8 @@ import { CatalogModal } from './CatalogModal';
 import { ContactModal } from './ContactModal';
 import { DescriptionModal } from './DescriptionModal';
 import { StorefrontHeader } from './StorefrontHeader';
+
+const ProductTurntable3D = React.lazy(() => import('../ProductTurntable3D'));
 
 interface UniverseSliderProps {
   initialFocusProductId?: string | null;
@@ -227,15 +230,65 @@ export const UniverseSlider: React.FC<UniverseSliderProps> = ({
           {abidjanTime}
         </div>
 
-        {/* Central 3D Spatial 3-Universe Stage (HABITS left · CHAUSSURES center · ACCESSOIRES right) */}
+        {/* Central 3D Stage: uses <ProductTurntable3D /> when a `.glb` model is ready, else seamless 3-universe stage */}
         <section className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-white">
-          <UniverseStage3D
-            slots={slotProducts}
-            activeIndex={universeIndex}
-            onChangeIndex={handleSetUniverseIndex}
-            onActiveProductClick={() => setCatalogOpen(true)}
-            onArticleMove={replayCallout}
-          />
+          {currentProduct &&
+          currentProduct.model3dStatus === 'ready' &&
+          currentProduct.model3dUrl ? (
+            <div className="relative h-full w-full">
+              <Suspense
+                fallback={
+                  <div className="flex h-full w-full items-center justify-center bg-white">
+                    {currentProduct.images[0] ? (
+                      <img
+                        src={currentProduct.images[0]}
+                        alt={currentProduct.name}
+                        className="h-full max-h-[76%] w-full max-w-[76%] object-contain"
+                      />
+                    ) : null}
+                  </div>
+                }
+              >
+                <ProductTurntable3D
+                  images={currentProduct.images}
+                  model3dUrl={currentProduct.model3dUrl}
+                  model3dStatus={currentProduct.model3dStatus}
+                  alt={currentProduct.name}
+                  onModelClick={() => setCatalogOpen(true)}
+                />
+              </Suspense>
+
+              {/* Discreet monochrome universe switch arrows so HABITS / CHAUSSURES / ACCESSOIRES remain navigable */}
+              {universeIndex > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleSetUniverseIndex(universeIndex - 1)}
+                  aria-label="Univers précédent"
+                  className="absolute top-1/2 left-2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center bg-white/80 text-black hover:bg-black hover:text-white sm:left-4"
+                >
+                  <ChevronLeft className="h-4 w-4 stroke-[1.5]" />
+                </button>
+              )}
+              {universeIndex < UNIVERSE_ORDER.length - 1 && (
+                <button
+                  type="button"
+                  onClick={() => handleSetUniverseIndex(universeIndex + 1)}
+                  aria-label="Univers suivant"
+                  className="absolute top-1/2 right-2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center bg-white/80 text-black hover:bg-black hover:text-white sm:right-4"
+                >
+                  <ChevronRight className="h-4 w-4 stroke-[1.5]" />
+                </button>
+              )}
+            </div>
+          ) : (
+            <UniverseStage3D
+              slots={slotProducts}
+              activeIndex={universeIndex}
+              onChangeIndex={handleSetUniverseIndex}
+              onActiveProductClick={() => setCatalogOpen(true)}
+              onArticleMove={replayCallout}
+            />
+          )}
 
           {/* Non-button technical leader branch + animated text above & slightly right of the foreground article */}
           {!hideLogoDuringIntro && currentProduct && (

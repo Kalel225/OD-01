@@ -1,10 +1,9 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { SEED_ORDERS, SEED_PRODUCTS } from '../data/seedCatalog';
 import {
   CartItem,
   CodAnalytics,
   CodOrder,
-  Model3DStatus,
   OrderStatus,
   Product,
   buildWhatsAppOrderMessage,
@@ -12,8 +11,7 @@ import {
 
 const STORAGE_KEYS = {
   CART: 'od01_unified_cart_v2',
-  PRODUCTS: 'od01_catalog_products_v5',
-  LEGACY_PRODUCTS_V4: 'od01_catalog_products_v4',
+  PRODUCTS: 'od01_catalog_products_v4',
   LEGACY_PRODUCTS_V3: 'od01_catalog_products_v3',
   LEGACY_PRODUCTS_V2: 'od01_catalog_products_v2',
   LEGACY_PRODUCTS_V1: 'od01_catalog_products_v1',
@@ -31,47 +29,18 @@ function readStorage<T>(key: string, fallback: T): T {
   }
 }
 
-function normalizeProduct(raw: Product): Product {
-  const derivedImages: string[] =
-    Array.isArray(raw.images) && raw.images.length > 0
-      ? raw.images.filter((u): u is string => typeof u === 'string' && u.length > 0).slice(0, 4)
-      : raw.custom3D?.views360 && raw.custom3D.views360.length > 0
-        ? raw.custom3D.views360.slice(0, 4)
-        : raw.custom3D?.imageDataUrl
-          ? [raw.custom3D.imageDataUrl]
-          : [];
-
-  return {
-    ...raw,
-    images: derivedImages,
-    model3dUrl: raw.model3dUrl ?? null,
-    model3dStatus: raw.model3dStatus ?? 'none',
-    model3dJobId: raw.model3dJobId ?? null,
-    model3dEndpoint: raw.model3dEndpoint ?? null,
-    model3dError: raw.model3dError ?? null,
-  };
-}
-
 function loadInitialProducts(): Product[] {
-  const existingV5 = readStorage<Product[] | null>(STORAGE_KEYS.PRODUCTS, null);
-  if (existingV5 && existingV5.length > 0) {
-    return existingV5.map(normalizeProduct);
+  const existingV4 = readStorage<Product[] | null>(STORAGE_KEYS.PRODUCTS, null);
+  if (existingV4 && existingV4.length > 0) {
+    return existingV4;
   }
-  // Preserve any custom photo-to-3D articles added earlier while upgrading flagship SKUs to 8-angle 360° continuous studio sets
-  const legacyV4 = readStorage<Product[]>(STORAGE_KEYS.LEGACY_PRODUCTS_V4, []);
+  // Preserve any custom photo-to-3D articles added earlier while upgrading flagship SKUs to 4-view 360° studio sets
   const legacyV3 = readStorage<Product[]>(STORAGE_KEYS.LEGACY_PRODUCTS_V3, []);
   const legacyV2 = readStorage<Product[]>(STORAGE_KEYS.LEGACY_PRODUCTS_V2, []);
   const legacyV1 = readStorage<Product[]>(STORAGE_KEYS.LEGACY_PRODUCTS_V1, []);
-  const legacySource =
-    legacyV4.length > 0
-      ? legacyV4
-      : legacyV3.length > 0
-        ? legacyV3
-        : legacyV2.length > 0
-          ? legacyV2
-          : legacyV1;
+  const legacySource = legacyV3.length > 0 ? legacyV3 : legacyV2.length > 0 ? legacyV2 : legacyV1;
   const customOnly = legacySource.filter((p) => p.isCustom);
-  return [...customOnly, ...SEED_PRODUCTS].map(normalizeProduct);
+  return [...customOnly, ...SEED_PRODUCTS];
 }
 
 function writeStorage<T>(key: string, value: T): void {
@@ -90,13 +59,6 @@ export interface PlaceOrderInput {
   landmark: string;
 }
 
-export type Product3DPatch = Partial<
-  Pick<
-    Product,
-    'images' | 'model3dUrl' | 'model3dStatus' | 'model3dJobId' | 'model3dEndpoint' | 'model3dError'
-  >
->;
-
 interface OD01StoreValue {
   // Catalog
   products: Product[];
@@ -106,11 +68,6 @@ interface OD01StoreValue {
   updateVariantStock: (productId: string, sizeLabel: string, stock: number) => void;
   toggleProductActive: (productId: string) => void;
   deleteCustomProduct: (productId: string) => void;
-
-  // 3D (.glb) Turntable Pipeline
-  updateProduct3DState: (productId: string, patch: Product3DPatch) => void;
-  triggerProduct3DGeneration: (productId: string, overrideImages?: string[]) => Promise<void>;
-  pollProduct3DStatus: (productId: string) => Promise<void>;
 
   // Unified Cross-Universe Cart
   cart: CartItem[];
@@ -157,17 +114,12 @@ export const OD01StoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     writeStorage(STORAGE_KEYS.ORDERS, orders);
   }, [orders]);
 
-  const productsRef = useRef<Product[]>(products);
-  useEffect(() => {
-    productsRef.current = products;
-  }, [products]);
-
   // Cross-tab synchronization so Admin PWA changes reflect instantly on Storefront tabs
   useEffect(() => {
     const handleStorage = (e: StorageEvent) => {
       if (e.key === STORAGE_KEYS.PRODUCTS && e.newValue) {
         try {
-          setProducts((JSON.parse(e.newValue) as Product[]).map(normalizeProduct));
+          setProducts(JSON.parse(e.newValue) as Product[]);
         } catch {
           // ignore malformed external writes
         }
@@ -189,192 +141,14 @@ export const OD01StoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
-  // Hydrate persisted server-side 3D `.glb` states on mount
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/products/3d-states')
-      .then((res) => (res.ok ? res.json() : null))
-      .then(
-        (
-          payload: {
-            states?: Record<
-              string,
-              {
-                model3dUrl: string | null;
-                model3dStatus: Model3DStatus;
-                model3dJobId: string | null;
-                model3dEndpoint: string | null;
-                model3dError: string | null;
-              }
-            >;
-          } | null
-        ) => {
-          if (cancelled || !payload?.states) return;
-          const states = payload.states;
-          setProducts((prev) =>
-            prev.map((prod) => {
-              const remote = states[prod.id];
-              if (!remote) return prod;
-              return {
-                ...prod,
-                model3dUrl: remote.model3dUrl ?? prod.model3dUrl,
-                model3dStatus: remote.model3dStatus ?? prod.model3dStatus,
-                model3dJobId: remote.model3dJobId ?? prod.model3dJobId,
-                model3dEndpoint: remote.model3dEndpoint ?? prod.model3dEndpoint,
-                model3dError: remote.model3dError ?? prod.model3dError,
-              };
-            })
-          );
-        }
-      )
-      .catch(() => {
-        // Server might be starting; local state stays intact
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const activeProducts = useMemo(
     () => products.filter((p) => p.active),
     [products]
   );
 
   const addProduct = useCallback((product: Product) => {
-    setProducts((prev) => [normalizeProduct(product), ...prev]);
+    setProducts((prev) => [product, ...prev]);
   }, []);
-
-  const updateProduct3DState = useCallback((productId: string, patch: Product3DPatch) => {
-    setProducts((prev) =>
-      prev.map((p) => (p.id === productId ? { ...p, ...patch } : p))
-    );
-  }, []);
-
-  const triggerProduct3DGeneration = useCallback(
-    async (productId: string, overrideImages?: string[]) => {
-      const target = productsRef.current.find((p) => p.id === productId);
-      const images =
-        overrideImages && overrideImages.length > 0
-          ? overrideImages
-          : target?.images && target.images.length > 0
-            ? target.images
-            : target?.custom3D?.imageDataUrl
-              ? [target.custom3D.imageDataUrl]
-              : [];
-
-      if (images.length === 0) {
-        updateProduct3DState(productId, {
-          model3dStatus: 'failed',
-          model3dError: 'Aucune photo produit disponible pour la reconstruction 3D.',
-        });
-        return;
-      }
-
-      updateProduct3DState(productId, {
-        images: images.slice(0, 4),
-        model3dStatus: 'pending',
-        model3dError: null,
-      });
-
-      try {
-        const response = await fetch(
-          `/api/products/${encodeURIComponent(productId)}/generate-3d`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ images: images.slice(0, 4) }),
-          }
-        );
-
-        const data = (await response.json().catch(() => ({}))) as {
-          status?: Model3DStatus;
-          jobId?: string | null;
-          endpoint?: string | null;
-          error?: string;
-        };
-
-        if (!response.ok || data.status === 'failed') {
-          updateProduct3DState(productId, {
-            model3dStatus: 'failed',
-            model3dError:
-              data.error ||
-              `Échec du lancement de la reconstruction 3D (HTTP ${response.status}).`,
-          });
-          return;
-        }
-
-        updateProduct3DState(productId, {
-          model3dStatus: data.status ?? 'processing',
-          model3dJobId: data.jobId ?? null,
-          model3dEndpoint: data.endpoint ?? null,
-          model3dError: null,
-        });
-      } catch (err) {
-        const message =
-          err instanceof Error
-            ? err.message
-            : 'Erreur réseau lors du lancement de la reconstruction 3D.';
-        updateProduct3DState(productId, {
-          model3dStatus: 'failed',
-          model3dError: message,
-        });
-      }
-    },
-    [updateProduct3DState]
-  );
-
-  const pollProduct3DStatus = useCallback(
-    async (productId: string) => {
-      try {
-        const response = await fetch(
-          `/api/products/${encodeURIComponent(productId)}/generate-3d/status`
-        );
-        if (!response.ok && response.status === 404) return;
-
-        const data = (await response.json().catch(() => null)) as {
-          status?: Model3DStatus;
-          model3dUrl?: string | null;
-          jobId?: string | null;
-          endpoint?: string | null;
-          error?: string | null;
-        } | null;
-
-        if (!data || !data.status) return;
-
-        updateProduct3DState(productId, {
-          model3dStatus: data.status,
-          model3dUrl: data.model3dUrl ?? undefined,
-          model3dJobId: data.jobId ?? undefined,
-          model3dEndpoint: data.endpoint ?? undefined,
-          model3dError: data.error ?? null,
-        });
-      } catch {
-        // Keep current processing status and retry on next 4s tick
-      }
-    },
-    [updateProduct3DState]
-  );
-
-  // Automatic 4-second polling loop whenever any product is pending or processing
-  const pollingKey = useMemo(
-    () =>
-      products
-        .filter((p) => p.model3dStatus === 'pending' || p.model3dStatus === 'processing')
-        .map((p) => p.id)
-        .join(','),
-    [products]
-  );
-
-  useEffect(() => {
-    if (!pollingKey) return;
-    const ids = pollingKey.split(',').filter(Boolean);
-    const interval = window.setInterval(() => {
-      for (const id of ids) {
-        void pollProduct3DStatus(id);
-      }
-    }, 4000);
-    return () => window.clearInterval(interval);
-  }, [pollingKey, pollProduct3DStatus]);
 
   const updateProductPrice = useCallback((productId: string, priceFcfa: number) => {
     const safePrice = Math.max(0, Math.round(priceFcfa));
@@ -631,9 +405,6 @@ export const OD01StoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       updateVariantStock,
       toggleProductActive,
       deleteCustomProduct,
-      updateProduct3DState,
-      triggerProduct3DGeneration,
-      pollProduct3DStatus,
       cart,
       totalCartItems,
       totalCartFcfa,
@@ -655,9 +426,6 @@ export const OD01StoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       updateVariantStock,
       toggleProductActive,
       deleteCustomProduct,
-      updateProduct3DState,
-      triggerProduct3DGeneration,
-      pollProduct3DStatus,
       cart,
       totalCartItems,
       totalCartFcfa,

@@ -325,22 +325,31 @@ export const UniverseStage3D: React.FC<UniverseStage3DProps> = ({
         const shadowMat = node.shadow.material as THREE.MeshBasicMaterial;
         shadowMat.opacity = Math.max(0.1, 1 - bgBlend * 0.84 - Math.max(0, absOff - 1) * 0.1);
 
-        // Simple continuous 360° rotation on itself
-        node.pivot.position.y = 0.04;
+        // Subtle museum gallery sway & floating breath (preserves sharp 3/4 photorealistic angle)
+        const activeSwayAmp = i === engine.targetIndex && isActivelyRotating ? 0 : 1 - bgBlend * 0.35;
+        const swayY = Math.sin(idleClock * 0.72 + i * 1.6) * 0.16 * activeSwayAmp;
+        const swayX = Math.sin(idleClock * 0.52 + i * 1.1) * 0.025 * activeSwayAmp;
+        const floatY = Math.sin(idleClock * 1.05 + i * 1.3) * 0.022 * (1 - bgBlend * 0.5);
+
+        node.pivot.position.y = 0.04 + floatY;
         const turntable = node.currentModel?.userData?.turntable360 as
           | Turntable360Controller
           | undefined;
         if (turntable) {
           node.pivot.rotation.set(0, 0, 0);
+          const meshChild = node.currentModel?.children[0];
+          if (meshChild) {
+            meshChild.renderOrder = bgBlend < 0.25 ? 2 : 1;
+          }
           turntable.updateOrbit(
             node.currentRotY,
             node.currentRotX,
-            -Math.sign(offset) * bgBlend * 0.14,
-            0
+            swayY - Math.sign(offset) * bgBlend * 0.12,
+            swayX
           );
         } else {
-          node.pivot.rotation.y = node.currentRotY;
-          node.pivot.rotation.x = node.currentRotX;
+          node.pivot.rotation.y = node.currentRotY + swayY - Math.sign(offset) * bgBlend * 0.12;
+          node.pivot.rotation.x = node.currentRotX + swayX;
         }
       }
     };
@@ -380,17 +389,9 @@ export const UniverseStage3D: React.FC<UniverseStage3DProps> = ({
         const dt = Math.min(0.05, Math.max(0.001, (now - lastTime) / 1000));
         lastTime = now;
 
-        // Simple continuous 360° rotation on itself for every exposed article
+        // Smooth gallery showcase idle phase on GPU devices
         if (!isSoftwareGl && !prefersReducedMotion) {
           idleClock += dt;
-          for (let i = 0; i < 3; i++) {
-            const node = slotNodes[i];
-            const isDraggedSlot = isActivelyRotating && i === activeIndexRef.current;
-            if (!isDraggedSlot) {
-              const spinSpeed = i === engine.targetIndex ? 0.55 : 0.35;
-              node.targetRotY += dt * spinSpeed;
-            }
-          }
         }
 
         if (isSoftwareGl || prefersReducedMotion) {
@@ -751,7 +752,6 @@ export const UniverseStage3D: React.FC<UniverseStage3DProps> = ({
         if (nextModel) {
           node.currentModel = nextModel;
           node.pivot.add(nextModel);
-          node.shadow.position.y = -1.2;
           node.targetRotY = 0;
           node.targetRotX = 0.02;
           node.currentRotY = 0;

@@ -91,14 +91,12 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
     scene: THREE.Scene;
     renderer: THREE.WebGLRenderer;
     pivot: THREE.Group;
-    shadowPlane: THREE.Mesh;
     currentModel: THREE.Group | null;
     targetRotY: number;
     targetRotX: number;
     currentRotY: number;
     currentRotX: number;
     entryScale: number;
-    pauseAutoSpinUntil: number;
     requestRender: () => void;
     isSoftwareGl: boolean;
   } | null>(null);
@@ -213,14 +211,12 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
       scene,
       renderer,
       pivot,
-      shadowPlane,
       currentModel: null as THREE.Group | null,
       targetRotY: 0,
       targetRotX: 0.02,
       currentRotY: 0,
       currentRotX: 0.02,
       entryScale: 0.92,
-      pauseAutoSpinUntil: 0,
       requestRender: () => {},
       isSoftwareGl,
     };
@@ -264,10 +260,9 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
         const dt = Math.min(0.05, Math.max(0.001, (now - lastTime) / 1000));
         lastTime = now;
 
-        // Real-time continuous invisible-turntable spin (pauses cleanly while dragging or inspecting a locked side)
-        if (!isSoftwareGl && !prefersReducedMotion && !draggingLocal && now >= state.pauseAutoSpinUntil) {
+        // Gentle gallery showcase sway on GPU devices when idle (full 360° orbit on drag)
+        if (!isSoftwareGl && !prefersReducedMotion && !draggingLocal) {
           idleClock += dt;
-          state.targetRotY += dt * 0.48;
         }
 
         if (isSoftwareGl || prefersReducedMotion) {
@@ -280,7 +275,10 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
           state.entryScale = THREE.MathUtils.damp(state.entryScale, 1, 12, dt);
         }
 
-        pivot.position.y = 0.02;
+        const swayAmp = draggingLocal ? 0 : 1;
+        const swayY = Math.sin(idleClock * 0.78) * 0.14 * swayAmp;
+        const swayX = Math.sin(idleClock * 0.55) * 0.022 * swayAmp;
+        pivot.position.y = 0.02 + Math.sin(idleClock * 1.1) * 0.016 * swayAmp;
         pivot.scale.setScalar(state.entryScale);
 
         const turntable = state.currentModel?.userData?.turntable360 as
@@ -288,10 +286,10 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
           | undefined;
         if (turntable) {
           pivot.rotation.set(0, 0, 0);
-          turntable.updateOrbit(state.currentRotY, state.currentRotX, 0, 0);
+          turntable.updateOrbit(state.currentRotY, state.currentRotX, swayY, swayX);
         } else {
-          pivot.rotation.y = state.currentRotY;
-          pivot.rotation.x = state.currentRotX;
+          pivot.rotation.y = state.currentRotY + swayY;
+          pivot.rotation.x = state.currentRotX + swayX;
         }
 
         if (onYawChangeRef.current) {
@@ -472,7 +470,6 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
     if (delta < -Math.PI) delta += twoPi;
     state.targetRotY += delta;
     state.targetRotX = 0.02;
-    state.pauseAutoSpinUntil = performance.now() + 4000;
     state.requestRender();
   }, [forcedYawRad, forcedYawNonce]);
 
@@ -502,8 +499,6 @@ export const ProductStage3D: React.FC<ProductStage3DProps> = ({
       }
       state.currentModel = nextModel;
       state.pivot.add(nextModel);
-      state.shadowPlane.position.y = -1.22;
-
       if (isNewSource) {
         state.entryScale = state.isSoftwareGl ? 1 : 0.9;
         state.targetRotY = 0;

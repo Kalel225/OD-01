@@ -55,8 +55,6 @@ export interface Custom3DConfig {
   bgTolerance?: number;
 }
 
-export type Model3DStatus = 'none' | 'pending' | 'processing' | 'ready' | 'failed';
-
 export interface Product {
   id: string;
   sku: string;
@@ -72,18 +70,6 @@ export interface Product {
   description: string;
   modelPreset: ModelPreset;
   custom3D?: Custom3DConfig;
-  /** Product images: index 0 = mandatory primary view, indices 1..3 = optional secondary angles */
-  images: string[];
-  /** Public URL of the stored .glb 3D model (under models-3d/) */
-  model3dUrl: string | null;
-  /** Asynchronous 3D reconstruction pipeline status */
-  model3dStatus: Model3DStatus;
-  /** External fal.ai queue job ID for asynchronous polling */
-  model3dJobId: string | null;
-  /** Optional fal.ai endpoint used for this job (single vs multi-view) */
-  model3dEndpoint?: string | null;
-  /** Explicit error message when model3dStatus === 'failed' */
-  model3dError: string | null;
   sizes: SizeVariant[];
   active: boolean;
   isCustom?: boolean;

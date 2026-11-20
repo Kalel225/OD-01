@@ -55,6 +55,8 @@ export interface Custom3DConfig {
   bgTolerance?: number;
 }
 
+export type Model3dStatus = 'none' | 'pending' | 'processing' | 'ready' | 'failed';
+
 export interface Product {
   id: string;
   sku: string;
@@ -70,6 +72,12 @@ export interface Product {
   description: string;
   modelPreset: ModelPreset;
   custom3D?: Custom3DConfig;
+  /** Product photo URLs: index 0 = primary image, index 1..3 = optional secondary views */
+  images?: string[];
+  model3dUrl?: string | null;
+  model3dStatus?: Model3dStatus;
+  model3dJobId?: string | null;
+  model3dError?: string | null;
   sizes: SizeVariant[];
   active: boolean;
   isCustom?: boolean;

@@ -1,15 +1,29 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import {defineConfig} from 'vite';
 import {VitePWA} from 'vite-plugin-pwa';
+import {product3dMiddleware} from './src/server/product3dApi';
+
+dotenv.config({path: '.env.local'});
+dotenv.config();
 
 export default defineConfig(() => {
   return {
     plugins: [
       react(),
       tailwindcss(),
+      {
+        name: 'od01-product-3d-api',
+        configureServer(server) {
+          server.middlewares.use(product3dMiddleware);
+        },
+        configurePreviewServer(server) {
+          server.middlewares.use(product3dMiddleware);
+        },
+      },
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['icon.svg', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png', 'pwa-maskable-512x512.png'],

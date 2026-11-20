@@ -1,9 +1,10 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowUpRight, Layers, RotateCw, Upload, X } from 'lucide-react';
 import { useOD01Store } from '../../store/useOD01Store';
 import {
   CustomFinish,
   CustomVolumeMode,
+  Model3dStatus,
   Product,
   SizeVariant,
   UNIVERSE_ORDER,
@@ -12,6 +13,8 @@ import {
 } from '../../types/od01';
 import { ProductStage3D } from '../three/ProductStage3D';
 import { generateSample360Views } from '../three/imageTo3D';
+
+const LazyProductTurntable3D = lazy(() => import('../ProductTurntable3D'));
 
 interface AddProduct3DFormProps {
   onViewProductInStore: (productId: string) => void;
@@ -27,10 +30,10 @@ interface SideSlotMeta {
 }
 
 const SIDE_SLOTS: SideSlotMeta[] = [
-  { key: 'front', label: '0° FACE *', angleDeg: 0, required: true },
-  { key: 'back', label: '180° DOS', angleDeg: 180 },
-  { key: 'right', label: '90° DROIT', angleDeg: 90 },
-  { key: 'left', label: '270° GAUCHE', angleDeg: 270 },
+  { key: 'front', label: 'FACE / 3/4 AVANT *', angleDeg: 0, required: true },
+  { key: 'back', label: 'TALON / ARRIÈRE', angleDeg: 180 },
+  { key: 'right', label: 'PROFIL DROIT', angleDeg: 90 },
+  { key: 'left', label: 'PROFIL GAUCHE', angleDeg: 270 },
 ];
 
 const EMPTY_SIDES: Record<SideSlotKey, string> = {
@@ -100,11 +103,12 @@ function readFileAsDataUrl(file: File): Promise<string> {
 export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
   onViewProductInStore,
 }) => {
-  const { products, addProduct } = useOD01Store();
+  const { products, addProduct, updateProduct3DState } = useOD01Store();
   const singleSlotInputRef = useRef<HTMLInputElement | null>(null);
   const batchInputRef = useRef<HTMLInputElement | null>(null);
   const activeUploadSlotRef = useRef<SideSlotKey>('front');
 
+  const [draftProductId, setDraftProductId] = useState<string>(() => `prod-custom-${Date.now()}`);
   const [universe, setUniverse] = useState<UniverseId>('CHAUSSURES');
   const [prefix, setPrefix] = useState<string>('SN');
   const [name, setName] = useState<string>('');
@@ -136,6 +140,14 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [publishedProduct, setPublishedProduct] = useState<Product | null>(null);
 
+  // Async fal.ai GLB Turntable pipeline state
+  const [autoGenerateOnSave, setAutoGenerateOnSave] = useState<boolean>(false);
+  const [activeJobProductId, setActiveJobProductId] = useState<string | null>(null);
+  const [model3dStatus, setModel3dStatus] = useState<Model3dStatus>('none');
+  const [model3dUrl, setModel3dUrl] = useState<string | null>(null);
+  const [model3dJobId, setModel3dJobId] = useState<string | null>(null);
+  const [model3dError, setModel3dError] = useState<string | null>(null);
+
   // Automatic sequential SKU computation (`OD-01 / XX-NN`)
   const autoSku = useMemo(() => generateNextSku(products, prefix), [products, prefix]);
 
@@ -150,6 +162,135 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
   }, [batchSequence, sideViews]);
 
   const primaryImageUrl = orderedViews360[0] ?? '';
+
+  const triggerGenerate3D = useCallback(
+    async (targetProductId: string, sourceImages: string[]) => {
+      const validImages = sourceImages.filter((u) => Boolean(u && u.trim())).slice(0, 4);
+      if (validImages.length === 0) {
+        setModel3dStatus('failed');
+        setModel3dError('IMPORTEZ AU MOINS L’IMAGE PRINCIPALE AVANT DE GÉNÉRER LA 3D.');
+        return;
+      }
+
+      setActiveJobProductId(targetProductId);
+      setModel3dStatus('pending');
+      setModel3dError(null);
+      updateProduct3DState(targetProductId, {
+        images: validImages,
+        model3dStatus: 'pending',
+        model3dError: null,
+      });
+
+      try {
+        const res = await fetch(`/api/products/${encodeURIComponent(targetProductId)}/generate-3d`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ images: validImages }),
+        });
+        const data = (await res.json()) as {
+          status?: Model3dStatus;
+          jobId?: string;
+          error?: string;
+        };
+
+        if (!res.ok || data.error) {
+          const errText = data.error || `Erreur HTTP ${res.status}`;
+          setModel3dStatus('failed');
+          setModel3dError(errText);
+          updateProduct3DState(targetProductId, {
+            model3dStatus: 'failed',
+            model3dError: errText,
+          });
+          return;
+        }
+
+        const nextStatus: Model3dStatus = data.status ?? 'processing';
+        const nextJobId = data.jobId ?? null;
+        setModel3dStatus(nextStatus);
+        setModel3dJobId(nextJobId);
+        setModel3dError(null);
+        updateProduct3DState(targetProductId, {
+          model3dStatus: nextStatus,
+          model3dJobId: nextJobId,
+          model3dError: null,
+        });
+      } catch (err) {
+        const errText =
+          err instanceof Error ? err.message : 'Erreur réseau lors du lancement 3D.';
+        setModel3dStatus('failed');
+        setModel3dError(errText);
+        updateProduct3DState(targetProductId, {
+          model3dStatus: 'failed',
+          model3dError: errText,
+        });
+      }
+    },
+    [updateProduct3DState]
+  );
+
+  // Poll GET /api/products/[id]/generate-3d/status every 4s while pending or processing
+  useEffect(() => {
+    if (!activeJobProductId) return;
+    if (model3dStatus !== 'pending' && model3dStatus !== 'processing') return;
+
+    let cancelled = false;
+    const pollStatus = async () => {
+      try {
+        const res = await fetch(
+          `/api/products/${encodeURIComponent(activeJobProductId)}/generate-3d/status`
+        );
+        const data = (await res.json()) as {
+          status?: Model3dStatus;
+          model3dUrl?: string | null;
+          error?: string | null;
+        };
+        if (cancelled) return;
+
+        if (!res.ok) {
+          const errText = data.error || `Erreur HTTP ${res.status}`;
+          setModel3dStatus('failed');
+          setModel3dError(errText);
+          updateProduct3DState(activeJobProductId, {
+            model3dStatus: 'failed',
+            model3dError: errText,
+          });
+          return;
+        }
+
+        if (data.status === 'ready' && data.model3dUrl) {
+          setModel3dStatus('ready');
+          setModel3dUrl(data.model3dUrl);
+          setModel3dError(null);
+          updateProduct3DState(activeJobProductId, {
+            model3dStatus: 'ready',
+            model3dUrl: data.model3dUrl,
+            model3dError: null,
+          });
+        } else if (data.status === 'failed') {
+          const errText = data.error || 'Échec de la reconstruction 3D.';
+          setModel3dStatus('failed');
+          setModel3dError(errText);
+          updateProduct3DState(activeJobProductId, {
+            model3dStatus: 'failed',
+            model3dError: errText,
+          });
+        } else if (data.status === 'processing') {
+          setModel3dStatus('processing');
+        }
+      } catch {
+        // Keep polling on transient network hiccup
+      }
+    };
+
+    const intervalId = window.setInterval(() => {
+      void pollStatus();
+    }, 4000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [activeJobProductId, model3dStatus, updateProduct3DState]);
 
   // Compute quick-angle inspection buttons dynamically matching the active views
   const quickAngleButtons = useMemo(() => {
@@ -385,8 +526,13 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
 
     setErrorMsg(null);
 
+    const productId = draftProductId;
+    const productImages = orderedViews360.slice(0, 4);
+    const shouldAutoGenerate =
+      autoGenerateOnSave && model3dStatus !== 'ready' && model3dStatus !== 'processing';
+
     const newProduct: Product = {
-      id: `prod-custom-${Date.now()}`,
+      id: productId,
       sku: autoSku.sku,
       codePrefix: autoSku.codePrefix,
       codeNumber: autoSku.codeNumber,
@@ -410,6 +556,11 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
         reliefStrength,
         bgTolerance,
       },
+      images: productImages,
+      model3dUrl: model3dStatus === 'ready' ? model3dUrl : null,
+      model3dStatus: shouldAutoGenerate ? 'pending' : model3dStatus,
+      model3dJobId: model3dJobId,
+      model3dError: model3dError,
       sizes,
       active: true,
       isCustom: true,
@@ -424,6 +575,17 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
     setBatchSequence([]);
     setLiveAngleDeg(0);
     setForcedYawRad(null);
+
+    if (shouldAutoGenerate) {
+      void triggerGenerate3D(productId, productImages);
+    } else {
+      setDraftProductId(`prod-custom-${Date.now()}`);
+      setModel3dStatus('none');
+      setModel3dUrl(null);
+      setModel3dJobId(null);
+      setModel3dError(null);
+      setActiveJobProductId(null);
+    }
   };
 
   return (
@@ -449,7 +611,30 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
             isDraggingFile ? 'bg-[#F7F7F7]' : 'bg-white'
           }`}
         >
-          {primaryImageUrl ? (
+          {model3dStatus === 'ready' && model3dUrl ? (
+            <>
+              <Suspense
+                fallback={
+                  <div className="flex h-full w-full items-center justify-center text-[10px] text-[#7A7A7A]">
+                    CHARGEMENT DU MODÈLE .GLB...
+                  </div>
+                }
+              >
+                <LazyProductTurntable3D
+                  model3dUrl={model3dUrl}
+                  model3dStatus={model3dStatus}
+                  images={orderedViews360}
+                  alt={name || 'Aperçu 3D Turntable'}
+                  className="h-full w-full"
+                />
+              </Suspense>
+              <div className="pointer-events-none absolute top-2.5 left-3 right-3 flex items-center justify-between text-[9px] tabular-nums">
+                <span className="border border-black bg-white px-1.5 py-0.5 font-bold text-black">
+                  MODÈLE .GLB · TURNTABLE 360° (11S)
+                </span>
+              </div>
+            </>
+          ) : primaryImageUrl ? (
             <>
               <ProductStage3D
                 product={previewProduct}
@@ -621,6 +806,94 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
             >
               PROTOTYPE 360° (4 VUES)
             </button>
+          </div>
+
+          {/* Async fal.ai Image-to-3D (.GLB Turntable) Controls & Real-Time Status */}
+          <div className="space-y-2.5 border-t border-black pt-3 text-[10px]">
+            <div className="flex items-center justify-between">
+              <span className="font-bold tracking-[0.1em]">PIPELINE 3D .GLB (TURNTABLE)</span>
+              <span className="text-[9px] text-[#7A7A7A] tabular-nums">
+                {orderedViews360.slice(0, 4).length}/4 VUES
+              </span>
+            </div>
+
+            <button
+              type="button"
+              disabled={!primaryImageUrl || model3dStatus === 'pending' || model3dStatus === 'processing'}
+              onClick={() => {
+                const targetId = publishedProduct?.id ?? draftProductId;
+                const imgs =
+                  orderedViews360.length > 0
+                    ? orderedViews360
+                    : (publishedProduct?.images ?? []);
+                void triggerGenerate3D(targetId, imgs);
+              }}
+              className="min-h-[42px] w-full border border-black bg-black px-3 text-[10px] font-bold tracking-[0.1em] text-white hover:bg-[#1A1A1A] disabled:border-[#7A7A7A] disabled:bg-[#7A7A7A]"
+            >
+              {model3dStatus === 'ready'
+                ? 'RÉGÉNÉRER 3D'
+                : 'GÉNÉRER LA VUE 3D (TURNTABLE)'}
+            </button>
+
+            <label className="flex cursor-pointer items-center justify-between gap-2 pt-0.5">
+              <span className="text-[9px] font-bold text-black">
+                GÉNÉRER AUTOMATIQUEMENT LA 3D À L’ENREGISTREMENT
+              </span>
+              <input
+                type="checkbox"
+                checked={autoGenerateOnSave}
+                onChange={(e) => setAutoGenerateOnSave(e.target.checked)}
+                className="h-4 w-4 shrink-0 accent-black"
+              />
+            </label>
+
+            {(model3dStatus === 'pending' || model3dStatus === 'processing') && (
+              <div className="border border-black bg-[#F7F7F7] px-3 py-2.5 text-[10px] font-bold tracking-[0.1em] text-black">
+                RECONSTRUCTION 3D EN COURS...
+              </div>
+            )}
+
+            {model3dStatus === 'ready' && model3dUrl && (
+              <div className="flex flex-wrap items-center justify-between gap-2 border border-black bg-white px-3 py-2.5 text-[10px]">
+                <span className="font-bold text-black">MODÈLE 3D .GLB PRÊT</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const targetId = activeJobProductId ?? publishedProduct?.id ?? draftProductId;
+                    const imgs =
+                      orderedViews360.length > 0
+                        ? orderedViews360
+                        : (publishedProduct?.images ?? []);
+                    void triggerGenerate3D(targetId, imgs);
+                  }}
+                  className="border border-black bg-white px-2.5 py-1 text-[9px] font-bold text-black hover:bg-black hover:text-white"
+                >
+                  RÉGÉNÉRER 3D
+                </button>
+              </div>
+            )}
+
+            {model3dStatus === 'failed' && (
+              <div className="space-y-2 border border-black bg-black px-3 py-2.5 text-[10px] text-white">
+                <div className="font-bold">
+                  {model3dError || 'ÉCHEC DE LA GÉNÉRATION 3D.'}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const targetId = activeJobProductId ?? publishedProduct?.id ?? draftProductId;
+                    const imgs =
+                      orderedViews360.length > 0
+                        ? orderedViews360
+                        : (publishedProduct?.images ?? []);
+                    void triggerGenerate3D(targetId, imgs);
+                  }}
+                  className="border border-white bg-black px-2.5 py-1 text-[9px] font-bold text-white hover:bg-white hover:text-black"
+                >
+                  RÉESSAYER
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="space-y-3.5 border-t border-[#E5E5E5] pt-3 text-[10px]">

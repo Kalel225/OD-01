@@ -29,10 +29,30 @@ function readStorage<T>(key: string, fallback: T): T {
   }
 }
 
+function normalizeProduct(p: Product): Product {
+  const fallbackImages =
+    p.images && p.images.length > 0
+      ? p.images
+      : p.custom3D?.views360 && p.custom3D.views360.length > 0
+        ? p.custom3D.views360
+        : p.custom3D?.imageDataUrl
+          ? [p.custom3D.imageDataUrl]
+          : [];
+
+  return {
+    ...p,
+    images: fallbackImages,
+    model3dUrl: p.model3dUrl ?? null,
+    model3dStatus: p.model3dStatus ?? 'none',
+    model3dJobId: p.model3dJobId ?? null,
+    model3dError: p.model3dError ?? null,
+  };
+}
+
 function loadInitialProducts(): Product[] {
   const existingV4 = readStorage<Product[] | null>(STORAGE_KEYS.PRODUCTS, null);
   if (existingV4 && existingV4.length > 0) {
-    return existingV4;
+    return existingV4.map(normalizeProduct);
   }
   // Preserve any custom photo-to-3D articles added earlier while upgrading flagship SKUs to 4-view 360° studio sets
   const legacyV3 = readStorage<Product[]>(STORAGE_KEYS.LEGACY_PRODUCTS_V3, []);
@@ -40,7 +60,7 @@ function loadInitialProducts(): Product[] {
   const legacyV1 = readStorage<Product[]>(STORAGE_KEYS.LEGACY_PRODUCTS_V1, []);
   const legacySource = legacyV3.length > 0 ? legacyV3 : legacyV2.length > 0 ? legacyV2 : legacyV1;
   const customOnly = legacySource.filter((p) => p.isCustom);
-  return [...customOnly, ...SEED_PRODUCTS];
+  return [...customOnly, ...SEED_PRODUCTS].map(normalizeProduct);
 }
 
 function writeStorage<T>(key: string, value: T): void {
@@ -59,11 +79,16 @@ export interface PlaceOrderInput {
   landmark: string;
 }
 
+export type Product3DStatePatch = Partial<
+  Pick<Product, 'images' | 'model3dUrl' | 'model3dStatus' | 'model3dJobId' | 'model3dError'>
+>;
+
 interface OD01StoreValue {
   // Catalog
   products: Product[];
   activeProducts: Product[];
   addProduct: (product: Product) => void;
+  updateProduct3DState: (productId: string, patch: Product3DStatePatch) => void;
   updateProductPrice: (productId: string, priceFcfa: number) => void;
   updateVariantStock: (productId: string, sizeLabel: string, stock: number) => void;
   toggleProductActive: (productId: string) => void;
@@ -147,7 +172,13 @@ export const OD01StoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   );
 
   const addProduct = useCallback((product: Product) => {
-    setProducts((prev) => [product, ...prev]);
+    setProducts((prev) => [normalizeProduct(product), ...prev]);
+  }, []);
+
+  const updateProduct3DState = useCallback((productId: string, patch: Product3DStatePatch) => {
+    setProducts((prev) =>
+      prev.map((p) => (p.id === productId ? normalizeProduct({ ...p, ...patch }) : p))
+    );
   }, []);
 
   const updateProductPrice = useCallback((productId: string, priceFcfa: number) => {
@@ -401,6 +432,7 @@ export const OD01StoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       products,
       activeProducts,
       addProduct,
+      updateProduct3DState,
       updateProductPrice,
       updateVariantStock,
       toggleProductActive,
@@ -422,6 +454,7 @@ export const OD01StoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       products,
       activeProducts,
       addProduct,
+      updateProduct3DState,
       updateProductPrice,
       updateVariantStock,
       toggleProductActive,

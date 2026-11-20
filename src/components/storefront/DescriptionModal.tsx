@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { X } from 'lucide-react';
 import { Product, formatFcfa } from '../../types/od01';
+
+const LazyProductTurntable3D = lazy(() => import('../ProductTurntable3D'));
 
 interface DescriptionModalProps {
   open: boolean;
@@ -43,6 +45,32 @@ export const DescriptionModal: React.FC<DescriptionModalProps> = ({
         </div>
 
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-3 text-[11px] leading-relaxed sm:space-y-6 sm:px-6">
+          {product.model3dStatus === 'ready' && product.model3dUrl && (
+            <div className="h-56 w-full border border-[#E5E5E5] bg-white sm:h-64">
+              <Suspense
+                fallback={
+                  <div className="flex h-full w-full items-center justify-center text-[10px] text-[#7A7A7A]">
+                    CHARGEMENT 3D...
+                  </div>
+                }
+              >
+                <LazyProductTurntable3D
+                  model3dUrl={product.model3dUrl}
+                  model3dStatus={product.model3dStatus}
+                  images={
+                    product.images && product.images.length > 0
+                      ? product.images
+                      : product.custom3D?.imageDataUrl
+                        ? [product.custom3D.imageDataUrl]
+                        : []
+                  }
+                  alt={product.name}
+                  className="h-full w-full"
+                />
+              </Suspense>
+            </div>
+          )}
+
           <p className="text-black">{product.description}</p>
 
           <div className="space-y-3 bg-[#F7F7F7] p-4">

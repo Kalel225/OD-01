@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { useCartStore, useOD01Store } from '../../store/useOD01Store';
 import { Product, UNIVERSE_ORDER, UniverseId } from '../../types/od01';
@@ -8,6 +8,8 @@ import { CatalogModal } from './CatalogModal';
 import { ContactModal } from './ContactModal';
 import { DescriptionModal } from './DescriptionModal';
 import { StorefrontHeader } from './StorefrontHeader';
+
+const LazyProductTurntable3D = lazy(() => import('../ProductTurntable3D'));
 
 interface UniverseSliderProps {
   initialFocusProductId?: string | null;
@@ -229,13 +231,37 @@ export const UniverseSlider: React.FC<UniverseSliderProps> = ({
 
         {/* Central 3D Spatial 3-Universe Stage (HABITS left · CHAUSSURES center · ACCESSOIRES right) */}
         <section className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-white">
-          <UniverseStage3D
-            slots={slotProducts}
-            activeIndex={universeIndex}
-            onChangeIndex={handleSetUniverseIndex}
-            onActiveProductClick={() => setCatalogOpen(true)}
-            onArticleMove={replayCallout}
-          />
+          {currentProduct?.model3dStatus === 'ready' && currentProduct.model3dUrl ? (
+            <Suspense
+              fallback={
+                <div className="flex h-full w-full items-center justify-center bg-white text-[10px] tracking-[0.12em] text-[#7A7A7A]">
+                  CHARGEMENT 3D...
+                </div>
+              }
+            >
+              <LazyProductTurntable3D
+                model3dUrl={currentProduct.model3dUrl}
+                model3dStatus={currentProduct.model3dStatus}
+                images={
+                  currentProduct.images && currentProduct.images.length > 0
+                    ? currentProduct.images
+                    : currentProduct.custom3D?.imageDataUrl
+                      ? [currentProduct.custom3D.imageDataUrl]
+                      : []
+                }
+                alt={currentProduct.name}
+                className="h-full w-full"
+              />
+            </Suspense>
+          ) : (
+            <UniverseStage3D
+              slots={slotProducts}
+              activeIndex={universeIndex}
+              onChangeIndex={handleSetUniverseIndex}
+              onActiveProductClick={() => setCatalogOpen(true)}
+              onArticleMove={replayCallout}
+            />
+          )}
 
           {/* Non-button technical leader branch + animated text above & slightly right of the foreground article */}
           {!hideLogoDuringIntro && currentProduct && (

@@ -591,8 +591,8 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
   return (
     <div className="grid grid-cols-1 gap-6 md:grid-cols-12 lg:gap-8">
       {/* LEFT: Live Multi-Angle 360° Studio Engine */}
-      <div className="flex flex-col border border-black bg-white md:col-span-5">
-        <div className="flex items-center justify-between gap-2 border-b border-black px-4 py-3">
+      <div className="flex flex-col bg-[#F7F7F7] md:col-span-5">
+        <div className="flex items-center justify-between gap-2 px-4 py-3">
           <div className="flex min-w-0 items-center gap-2 text-[10px] font-bold sm:text-[11px]">
             <Layers className="h-4 w-4 shrink-0 stroke-[1.5]" />
             <span className="truncate">STUDIO MULTI-VUES 360° HD</span>
@@ -629,7 +629,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
                 />
               </Suspense>
               <div className="pointer-events-none absolute top-2.5 left-3 right-3 flex items-center justify-between text-[9px] tabular-nums">
-                <span className="border border-black bg-white px-1.5 py-0.5 font-bold text-black">
+                <span className="bg-[#F7F7F7] px-1.5 py-0.5 font-bold text-black">
                   MODÈLE .GLB · TURNTABLE 360° (11S)
                 </span>
               </div>
@@ -664,8 +664,8 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
               className="flex h-full cursor-pointer flex-col items-center justify-center p-6 text-center"
             >
               <div
-                className={`border border-dashed p-6 transition-colors ${
-                  isDraggingFile ? 'border-black bg-white' : 'border-black'
+                className={`p-6 transition-colors ${
+                  isDraggingFile ? 'bg-[#EAEAEA]' : 'bg-[#F7F7F7]'
                 }`}
               >
                 <Upload className="mx-auto h-6 w-6 stroke-[1.5] text-black" />
@@ -680,15 +680,15 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
           )}
         </div>
 
-        {/* 1-Click Angle Inspection Strip when at least 1 photo is loaded */}
-        {primaryImageUrl && (
-          <div className="grid grid-cols-2 border-t border-black bg-[#F7F7F7] sm:grid-cols-4">
+        {/* 1-Click Angle Inspection Strip when at least 1 photo is loaded (2.5D preview only) */}
+        {primaryImageUrl && !(model3dStatus === 'ready' && model3dUrl) && (
+          <div className="grid grid-cols-2 gap-1 bg-[#F7F7F7] p-2 sm:grid-cols-4">
             {quickAngleButtons.map((btn) => (
               <button
                 key={btn.label}
                 type="button"
                 onClick={() => jumpToAngle(btn.deg)}
-                className="flex min-h-[34px] items-center justify-center gap-1 border-r border-b border-[#E5E5E5] px-2 text-[9px] font-bold text-black last:border-r-0 hover:bg-black hover:text-white sm:border-b-0"
+                className="flex min-h-[34px] items-center justify-center gap-1 bg-white px-2 text-[9px] font-bold text-black hover:bg-black hover:text-white"
               >
                 <RotateCw className="h-2.5 w-2.5 shrink-0 stroke-[1.75]" />
                 <span className="truncate tabular-nums">{btn.label}</span>
@@ -698,7 +698,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
         )}
 
         {/* Multi-Side Upload Matrix & Studio Parameters */}
-        <div className="space-y-4 border-t border-black p-4">
+        <div className="space-y-4 p-4">
           <input
             ref={singleSlotInputRef}
             type="file"
@@ -742,8 +742,8 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
                 return (
                   <div
                     key={slot.key}
-                    className={`relative flex items-center gap-2 border p-2 transition-colors ${
-                      imgUrl ? 'border-black bg-white' : 'border-[#E5E5E5] bg-[#F7F7F7]'
+                    className={`relative flex items-center gap-2 p-2 transition-colors ${
+                      imgUrl ? 'bg-white' : 'bg-white/60'
                     }`}
                   >
                     <button
@@ -751,7 +751,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
                       onClick={() => openSlotPicker(slot.key)}
                       className="flex min-w-0 flex-1 items-center gap-2 text-left"
                     >
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center border border-[#E5E5E5] bg-white">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#F7F7F7]">
                         {imgUrl ? (
                           <img
                             src={imgUrl}
@@ -775,7 +775,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
                         type="button"
                         onClick={() => handleClearSlot(slot.key)}
                         aria-label={`Retirer la vue ${slot.label}`}
-                        className="flex h-6 w-6 shrink-0 items-center justify-center border border-[#E5E5E5] text-[#7A7A7A] hover:border-black hover:text-black"
+                        className="flex h-6 w-6 shrink-0 items-center justify-center bg-[#F7F7F7] text-[#7A7A7A] hover:bg-black hover:text-white"
                       >
                         <X className="h-3 w-3 stroke-[1.75]" />
                       </button>
@@ -802,14 +802,14 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
             <button
               type="button"
               onClick={handleGenerateTestPrototype}
-              className="min-h-[42px] flex-1 border border-black bg-white px-3 text-[10px] font-bold text-black hover:bg-[#F7F7F7] whitespace-nowrap"
+              className="min-h-[42px] flex-1 bg-white px-3 text-[10px] font-bold text-black hover:bg-[#EAEAEA] whitespace-nowrap"
             >
               PROTOTYPE 360° (4 VUES)
             </button>
           </div>
 
           {/* Async fal.ai Image-to-3D (.GLB Turntable) Controls & Real-Time Status */}
-          <div className="space-y-2.5 border-t border-black pt-3 text-[10px]">
+          <div className="space-y-2.5 pt-2 text-[10px]">
             <div className="flex items-center justify-between">
               <span className="font-bold tracking-[0.1em]">PIPELINE 3D .GLB (TURNTABLE)</span>
               <span className="text-[9px] text-[#7A7A7A] tabular-nums">
@@ -828,7 +828,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
                     : (publishedProduct?.images ?? []);
                 void triggerGenerate3D(targetId, imgs);
               }}
-              className="min-h-[42px] w-full border border-black bg-black px-3 text-[10px] font-bold tracking-[0.1em] text-white hover:bg-[#1A1A1A] disabled:border-[#7A7A7A] disabled:bg-[#7A7A7A]"
+              className="min-h-[42px] w-full bg-black px-3 text-[10px] font-bold tracking-[0.1em] text-white hover:bg-[#1A1A1A] disabled:bg-[#7A7A7A]"
             >
               {model3dStatus === 'ready'
                 ? 'RÉGÉNÉRER 3D'
@@ -848,13 +848,13 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
             </label>
 
             {(model3dStatus === 'pending' || model3dStatus === 'processing') && (
-              <div className="border border-black bg-[#F7F7F7] px-3 py-2.5 text-[10px] font-bold tracking-[0.1em] text-black">
+              <div className="bg-white px-3 py-2.5 text-[10px] font-bold tracking-[0.1em] text-black">
                 RECONSTRUCTION 3D EN COURS...
               </div>
             )}
 
             {model3dStatus === 'ready' && model3dUrl && (
-              <div className="flex flex-wrap items-center justify-between gap-2 border border-black bg-white px-3 py-2.5 text-[10px]">
+              <div className="flex flex-wrap items-center justify-between gap-2 bg-white px-3 py-2.5 text-[10px]">
                 <span className="font-bold text-black">MODÈLE 3D .GLB PRÊT</span>
                 <button
                   type="button"
@@ -866,7 +866,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
                         : (publishedProduct?.images ?? []);
                     void triggerGenerate3D(targetId, imgs);
                   }}
-                  className="border border-black bg-white px-2.5 py-1 text-[9px] font-bold text-black hover:bg-black hover:text-white"
+                  className="bg-[#F7F7F7] px-2.5 py-1 text-[9px] font-bold text-black hover:bg-black hover:text-white"
                 >
                   RÉGÉNÉRER 3D
                 </button>
@@ -874,7 +874,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
             )}
 
             {model3dStatus === 'failed' && (
-              <div className="space-y-2 border border-black bg-black px-3 py-2.5 text-[10px] text-white">
+              <div className="space-y-2 bg-black px-3 py-2.5 text-[10px] text-white">
                 <div className="font-bold">
                   {model3dError || 'ÉCHEC DE LA GÉNÉRATION 3D.'}
                 </div>
@@ -888,7 +888,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
                         : (publishedProduct?.images ?? []);
                     void triggerGenerate3D(targetId, imgs);
                   }}
-                  className="border border-white bg-black px-2.5 py-1 text-[9px] font-bold text-white hover:bg-white hover:text-black"
+                  className="bg-white px-2.5 py-1 text-[9px] font-bold text-black hover:bg-[#EAEAEA]"
                 >
                   RÉESSAYER
                 </button>
@@ -896,7 +896,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
             )}
           </div>
 
-          <div className="space-y-3.5 border-t border-[#E5E5E5] pt-3 text-[10px]">
+          <div className="space-y-3.5 pt-2 text-[10px]">
             {/* 3D Optical Contour Profile */}
             <div>
               <div className="mb-1.5 font-bold">COURBURE OPTIQUE 3D</div>
@@ -912,10 +912,10 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
                     key={mode.id}
                     type="button"
                     onClick={() => setVolumeMode(mode.id)}
-                    className={`min-h-[34px] border text-[10px] font-bold ${
+                    className={`min-h-[34px] text-[10px] font-bold ${
                       volumeMode === mode.id
-                        ? 'border-black bg-black text-white'
-                        : 'border-[#E5E5E5] bg-white text-black hover:border-black'
+                        ? 'bg-black text-white'
+                        : 'bg-white text-black hover:bg-[#EAEAEA]'
                     }`}
                   >
                     {mode.label}
@@ -925,7 +925,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
             </div>
 
             {/* Adaptive Background Cutout + Tolerance */}
-            <div className="space-y-2 border-t border-[#E5E5E5] pt-2.5">
+            <div className="space-y-2 pt-1">
               <label className="flex cursor-pointer items-center justify-between">
                 <span className="font-bold">DÉTOURAGE AUTO DU FOND (TOUTES VUES)</span>
                 <input
@@ -971,10 +971,10 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
                     key={f.id}
                     type="button"
                     onClick={() => setFinish(f.id)}
-                    className={`min-h-[34px] border text-[10px] font-bold ${
+                    className={`min-h-[34px] text-[10px] font-bold ${
                       finish === f.id
-                        ? 'border-black bg-black text-white'
-                        : 'border-[#E5E5E5] bg-white text-black hover:border-black'
+                        ? 'bg-black text-white'
+                        : 'bg-white text-black hover:bg-[#EAEAEA]'
                     }`}
                   >
                     {f.label}
@@ -989,7 +989,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
       {/* RIGHT: Product Specification & Auto-SKU Publishing Form */}
       <form onSubmit={handlePublish} className="space-y-5 md:col-span-7">
         {/* Auto-SKU Header Block */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border border-black bg-[#F7F7F7] p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-[#F7F7F7] p-4">
           <div>
             <div className="text-[10px] text-[#7A7A7A]">CODE SKU ATTRIBUÉ AUTOMATIQUEMENT</div>
             <div className="mt-1 text-[16px] font-bold tracking-[0.12em] text-black tabular-nums">
@@ -1007,7 +1007,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
             <select
               value={universe}
               onChange={(e) => handleUniverseChange(e.target.value as UniverseId)}
-              className="h-11 w-full border border-black bg-white px-3 text-[11px] font-bold"
+              className="h-11 w-full bg-[#F7F7F7] px-3 text-[11px] font-bold"
             >
               {UNIVERSE_ORDER.map((u) => (
                 <option key={u} value={u}>
@@ -1022,7 +1022,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
             <select
               value={prefix}
               onChange={(e) => setPrefix(e.target.value)}
-              className="h-11 w-full border border-black bg-white px-3 text-[11px] font-bold"
+              className="h-11 w-full bg-[#F7F7F7] px-3 text-[11px] font-bold"
             >
               {PREFIX_OPTIONS_BY_UNIVERSE[universe].map((opt) => (
                 <option key={opt.code} value={opt.code}>
@@ -1042,7 +1042,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="EX: NIKE DUNK LOW BLACK / BALENCIAGA TRACK"
-              className="h-11 w-full border border-black bg-white px-3 text-[11px] placeholder:text-[#7A7A7A]"
+              className="h-11 w-full bg-[#F7F7F7] px-3 text-[11px] placeholder:text-[#7A7A7A]"
             />
           </div>
 
@@ -1055,7 +1055,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
               required
               value={priceInput}
               onChange={(e) => setPriceInput(e.target.value)}
-              className="h-11 w-full border border-black bg-white px-3 text-[11px] font-bold tabular-nums"
+              className="h-11 w-full bg-[#F7F7F7] px-3 text-[11px] font-bold tabular-nums"
             />
           </div>
         </div>
@@ -1067,7 +1067,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
               type="text"
               value={composition}
               onChange={(e) => setComposition(e.target.value)}
-              className="h-11 w-full border border-black bg-white px-3 text-[11px]"
+              className="h-11 w-full bg-[#F7F7F7] px-3 text-[11px]"
             />
           </div>
           <div>
@@ -1076,7 +1076,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
               type="text"
               value={dimensions}
               onChange={(e) => setDimensions(e.target.value)}
-              className="h-11 w-full border border-black bg-white px-3 text-[11px]"
+              className="h-11 w-full bg-[#F7F7F7] px-3 text-[11px]"
             />
           </div>
         </div>
@@ -1088,7 +1088,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
               type="text"
               value={weight}
               onChange={(e) => setWeight(e.target.value)}
-              className="h-11 w-full border border-black bg-white px-3 text-[11px]"
+              className="h-11 w-full bg-[#F7F7F7] px-3 text-[11px]"
             />
           </div>
           <div className="sm:col-span-2">
@@ -1098,7 +1098,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="CARACTÉRISTIQUES MATÉRIELLES, COUPE ET FINITIONS..."
-              className="w-full border border-black bg-white p-3 text-[11px] placeholder:text-[#7A7A7A]"
+              className="w-full bg-[#F7F7F7] p-3 text-[11px] placeholder:text-[#7A7A7A]"
             />
           </div>
         </div>
@@ -1110,7 +1110,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {sizes.map((variant, idx) => (
-              <div key={variant.label} className="border border-[#E5E5E5] p-2.5">
+              <div key={variant.label} className="bg-[#F7F7F7] p-2.5">
                 <div className="flex items-center justify-between text-[10px]">
                   <span className="font-bold">{variant.label}</span>
                   <span className="text-[#7A7A7A] tabular-nums">{variant.cm}</span>
@@ -1128,7 +1128,7 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
                         prev.map((s, i) => (i === idx ? { ...s, stock: val } : s))
                       );
                     }}
-                    className="h-8 w-16 border border-black px-2 text-right text-[11px] font-bold tabular-nums"
+                    className="h-8 w-16 bg-white px-2 text-right text-[11px] font-bold tabular-nums"
                   />
                 </div>
               </div>
@@ -1137,13 +1137,13 @@ export const AddProduct3DForm: React.FC<AddProduct3DFormProps> = ({
         </div>
 
         {errorMsg && (
-          <div className="border border-black bg-black px-3.5 py-2.5 text-[10px] text-white">
+          <div className="bg-black px-3.5 py-2.5 text-[10px] text-white">
             {errorMsg}
           </div>
         )}
 
         {publishedProduct && (
-          <div className="flex flex-wrap items-center justify-between gap-3 border border-black bg-[#F7F7F7] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-[#F7F7F7] p-4">
             <div className="text-[11px]">
               <div className="font-bold">
                 ARTICLE PUBLIÉ : {publishedProduct.sku} — {publishedProduct.name}

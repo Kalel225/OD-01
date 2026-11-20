@@ -10,11 +10,12 @@ export const ProductThumbnail: React.FC<ProductThumbnailProps> = ({
   product,
   className = 'h-28 w-full',
 }) => {
-  if (product.custom3D?.imageDataUrl) {
+  const thumbUrl = product.images?.[0] || product.custom3D?.imageDataUrl;
+  if (thumbUrl) {
     return (
-      <div className={`flex items-center justify-center bg-white p-2.5 ${className}`}>
+      <div className={`flex items-center justify-center overflow-hidden bg-white p-2.5 ${className}`}>
         <img
-          src={product.custom3D.imageDataUrl}
+          src={thumbUrl}
           alt={product.name}
           referrerPolicy="no-referrer"
           className="max-h-full max-w-full object-contain"

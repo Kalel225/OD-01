@@ -8,7 +8,7 @@ export const PWAInstallButton: React.FC = () => {
 
   if (isInstalled) {
     return (
-      <span className="border border-[#E5E5E5] px-3 py-2 text-[10px] text-[#7A7A7A] whitespace-nowrap">
+      <span className="bg-[#F7F7F7] px-3 py-2 text-[10px] text-[#7A7A7A] whitespace-nowrap">
         PWA INSTALLÉE
       </span>
     );
@@ -19,7 +19,7 @@ export const PWAInstallButton: React.FC = () => {
       <button
         type="button"
         onClick={() => void install()}
-        className="flex min-h-[38px] items-center gap-2 border border-black bg-black px-3.5 text-[10px] font-bold tracking-[0.1em] text-white hover:bg-[#1A1A1A] whitespace-nowrap shrink-0"
+        className="flex min-h-[38px] items-center gap-2 bg-black px-3.5 text-[10px] font-bold tracking-[0.1em] text-white hover:bg-[#1A1A1A] whitespace-nowrap shrink-0"
       >
         <Download className="h-3.5 w-3.5" />
         <span>INSTALLER PWA</span>
@@ -32,7 +32,7 @@ export const PWAInstallButton: React.FC = () => {
       <button
         type="button"
         onClick={() => setShowGuide(true)}
-        className="flex min-h-[38px] items-center gap-2 border border-black bg-white px-3.5 text-[10px] font-bold tracking-[0.1em] text-black hover:bg-[#F7F7F7] whitespace-nowrap shrink-0"
+        className="flex min-h-[38px] items-center gap-2 bg-[#F7F7F7] px-3.5 text-[10px] font-bold tracking-[0.1em] text-black hover:bg-[#EAEAEA] whitespace-nowrap shrink-0"
       >
         <Download className="h-3.5 w-3.5" />
         <span>{isIOS ? 'INSTALLER IOS' : 'INSTALLER PWA'}</span>
@@ -47,10 +47,10 @@ export const PWAInstallButton: React.FC = () => {
           onClick={() => setShowGuide(false)}
         >
           <div
-            className="w-full max-w-md border border-black bg-white p-5"
+            className="w-full max-w-md bg-white p-5"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-black pb-3">
+            <div className="flex items-center justify-between pb-3">
               <span className="text-[11px] font-bold tracking-[0.12em]">
                 INSTALLATION ADMIN PWA OD-01
               </span>
@@ -58,7 +58,7 @@ export const PWAInstallButton: React.FC = () => {
                 type="button"
                 onClick={() => setShowGuide(false)}
                 aria-label="Fermer"
-                className="flex h-9 w-9 items-center justify-center text-black hover:border hover:border-black"
+                className="flex h-9 w-9 items-center justify-center text-black hover:bg-[#F7F7F7]"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -104,7 +104,7 @@ export const OfflineIndicator: React.FC = () => {
   return (
     <div
       role="status"
-      className="fixed right-4 bottom-4 z-50 border border-black bg-black px-3.5 py-2 text-[10px] font-bold tracking-[0.1em] text-white"
+      className="fixed right-4 bottom-4 z-50 bg-black px-3.5 py-2 text-[10px] font-bold tracking-[0.1em] text-white"
     >
       MODE HORS-LIGNE · DONNÉES LOCALES EN CACHE
     </div>

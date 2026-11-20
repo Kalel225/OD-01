@@ -787,14 +787,24 @@ export const UniverseStage3D: React.FC<UniverseStage3DProps> = ({
   const activeProduct = slots[activeIndex];
 
   if (webglUnavailable) {
+    const fallbackImg = activeProduct?.images?.[0] || activeProduct?.custom3D?.imageDataUrl;
     return (
       <div
         onClick={onActiveProductClick}
         className={`flex h-full w-full cursor-pointer flex-col items-center justify-center bg-white p-6 text-center ${className}`}
       >
-        <div className="text-[11px] font-bold tracking-[0.14em] text-black">
-          {activeProduct?.sku ?? 'OD-01'}
-        </div>
+        {fallbackImg ? (
+          <img
+            src={fallbackImg}
+            alt={activeProduct?.name ?? 'OD-01'}
+            referrerPolicy="no-referrer"
+            className="max-h-[68%] max-w-[78%] object-contain"
+          />
+        ) : (
+          <div className="text-[11px] font-bold tracking-[0.14em] text-black">
+            {activeProduct?.sku ?? 'OD-01'}
+          </div>
+        )}
       </div>
     );
   }

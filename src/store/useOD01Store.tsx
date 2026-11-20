@@ -49,10 +49,22 @@ function normalizeProduct(p: Product): Product {
   };
 }
 
+const SEED_BY_ID = new Map<string, Product>(SEED_PRODUCTS.map((p) => [p.id, p]));
+
 function loadInitialProducts(): Product[] {
   const existingV4 = readStorage<Product[] | null>(STORAGE_KEYS.PRODUCTS, null);
   if (existingV4 && existingV4.length > 0) {
-    return existingV4.map(normalizeProduct);
+    return existingV4.map((cached) => {
+      const seed = SEED_BY_ID.get(cached.id);
+      if (seed && !cached.isCustom) {
+        return normalizeProduct({
+          ...cached,
+          images: seed.images,
+          custom3D: seed.custom3D,
+        });
+      }
+      return normalizeProduct(cached);
+    });
   }
   // Preserve any custom photo-to-3D articles added earlier while upgrading flagship SKUs to 4-view 360° studio sets
   const legacyV3 = readStorage<Product[]>(STORAGE_KEYS.LEGACY_PRODUCTS_V3, []);

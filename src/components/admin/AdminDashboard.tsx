@@ -23,7 +23,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   return (
     <div className="flex min-h-[100dvh] flex-col bg-white text-black">
       {/* Fixed Monochrome Admin PWA Header */}
-      <header className="sticky top-0 z-30 border-b border-black bg-white px-5 md:px-8">
+      <header className="sticky top-0 z-30 bg-white px-5 md:px-8">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4">
           <div className="flex items-center gap-4 min-w-0">
             <span
@@ -51,7 +51,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <button
               type="button"
               onClick={() => onNavigateStorefront()}
-              className="flex min-h-[38px] items-center gap-1.5 border border-black bg-white px-3.5 text-[10px] font-bold tracking-[0.1em] text-black hover:bg-black hover:text-white whitespace-nowrap"
+              className="flex min-h-[38px] items-center gap-1.5 bg-[#F7F7F7] px-3.5 text-[10px] font-bold tracking-[0.1em] text-black hover:bg-black hover:text-white whitespace-nowrap"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               <span>BOUTIQUE</span>
@@ -61,7 +61,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       </header>
 
       {/* Primary Module Tabs */}
-      <div className="border-b border-[#E5E5E5] bg-white px-5 md:px-8">
+      <div className="bg-white px-5 md:px-8">
         <nav
           aria-label="Modules Administration"
           className="mx-auto flex max-w-6xl items-center gap-6 overflow-x-auto"
@@ -111,7 +111,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
       </main>
 
-      <footer className="border-t border-[#E5E5E5] py-4 text-center text-[10px] tracking-[0.14em] text-[#7A7A7A]">
+      <footer className="py-4 text-center text-[10px] tracking-[0.14em] text-[#7A7A7A]">
         @ OD-01 · OUEST DYNAMICS ADMIN PWA
       </footer>
 

@@ -539,8 +539,16 @@ export async function create2DTo3DMeshGroup(
       : [config.imageDataUrl];
 
   const uniqueSources = rawList.length > 0 ? rawList : [config.imageDataUrl];
-  const hasNativeMultiView = uniqueSources.length >= 2;
-  const loadedImages = await Promise.all(uniqueSources.map((src) => loadImage(src)));
+  const settled = await Promise.allSettled(uniqueSources.map((src) => loadImage(src)));
+  const loadedImages = settled
+    .filter((r): r is PromiseFulfilledResult<HTMLImageElement> => r.status === 'fulfilled')
+    .map((r) => r.value);
+
+  if (loadedImages.length === 0) {
+    throw new Error('Unable to load any product view image');
+  }
+
+  const hasNativeMultiView = loadedImages.length >= 2;
 
   const texSize = uniqueSources.length > 4 ? 768 : 1024;
   const bgTolerance = config.bgTolerance ?? 40;
@@ -673,27 +681,12 @@ export async function create2DTo3DMeshGroup(
  */
 export function generateSample360Views(universe: UniverseId): string[] {
   if (universe === 'CHAUSSURES') {
-    return [
-      '/src/assets/images/af1_triple_black_1795072570142.jpg',
-      '/src/assets/images/af1_black_front_1795093358989.jpg',
-      '/src/assets/images/af1_black_medial_1795093359049.jpg',
-      '/src/assets/images/af1_black_back_1795093358506.jpg',
-    ];
+    return ['/src/assets/images/af1_triple_black_1795072570142.jpg'];
   }
   if (universe === 'HABITS') {
-    return [
-      '/src/assets/images/essentials_tee_black_1795072573074.jpg',
-      '/src/assets/images/essentials_tee_right_1795093360195.jpg',
-      '/src/assets/images/essentials_tee_back_1795093359712.jpg',
-      '/src/assets/images/essentials_tee_left_1795093358743.jpg',
-    ];
+    return ['/src/assets/images/essentials_tee_black_1795072573074.jpg'];
   }
-  return [
-    '/src/assets/images/prada_renylon_bag_1795072692812.jpg',
-    '/src/assets/images/prada_bag_right_1795093358204.jpg',
-    '/src/assets/images/prada_bag_back_1795093359161.jpg',
-    '/src/assets/images/prada_bag_left_1795093358143.jpg',
-  ];
+  return ['/src/assets/images/prada_renylon_bag_1795072692812.jpg'];
 }
 
 export function generateSample2DPrototype(universe: UniverseId, _codeLabel: string): string {

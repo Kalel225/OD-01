@@ -18,14 +18,13 @@ export const SEED_PRODUCTS: Product[] = [
     description:
       "SILHOUETTE ICONIQUE NIKE AIR FORCE 1 '07 EN VERSION TRIPLE BLACK. EMPEIGNE EN CUIR GRAINÉ À SURPIQÛRES PRÉCISES, SWOOSH LATÉRAL COUSU, SEMELLE INTERMÉDIAIRE AIR ENCAPSULÉE ET PLAQUE MÉTALLIQUE AF-1 SUR LES LACETS.",
     modelPreset: 'SN',
+    images: ['/src/assets/images/af1_triple_black_1795072570142.jpg'],
+    model3dUrl: null,
+    model3dStatus: 'none',
+    model3dJobId: null,
+    model3dError: null,
     custom3D: {
       imageDataUrl: '/src/assets/images/af1_triple_black_1795072570142.jpg',
-      views360: [
-        '/src/assets/images/af1_triple_black_1795072570142.jpg',
-        '/src/assets/images/af1_black_front_1795093358989.jpg',
-        '/src/assets/images/af1_black_medial_1795093359049.jpg',
-        '/src/assets/images/af1_black_back_1795093358506.jpg',
-      ],
       removeBackground: true,
       bgTolerance: 42,
       depth: 0.36,
@@ -58,6 +57,11 @@ export const SEED_PRODUCTS: Product[] = [
     description:
       'ADIDAS YEEZY SLIDE COLORIS ONYX EN MOUSSE EVA MONOBLOC ULTRA-LÉGÈRE. SEMELLE EXTÉRIEURE À CRANS DENTS DE SCIE SIGNATURE POUR UN AMORTI ET UNE ADHÉRENCE ARCHITECTURALE.',
     modelPreset: 'SL',
+    images: ['/src/assets/images/yeezy_slide_onyx_1795072574385.jpg'],
+    model3dUrl: null,
+    model3dStatus: 'none',
+    model3dJobId: null,
+    model3dError: null,
     custom3D: {
       imageDataUrl: '/src/assets/images/yeezy_slide_onyx_1795072574385.jpg',
       removeBackground: true,
@@ -91,6 +95,11 @@ export const SEED_PRODUCTS: Product[] = [
     description:
       'BOTTINE TIMBERLAND 6-INCH WATERPROOF EN NUBUCK NOIR MAT À COUTURES SCELLÉES. COL REMBOURRÉ CONFORT CHEVILLE, QUADRUPLE SURPIQÛRE RENFORCÉE, ŒILLETS HEXAGONAUX MÉTAL ET SEMELLE CRANTÉE HAUTE TRACTION.',
     modelPreset: 'BT',
+    images: ['/src/assets/images/timberland_boot_black_1795072574380.jpg'],
+    model3dUrl: null,
+    model3dStatus: 'none',
+    model3dJobId: null,
+    model3dError: null,
     custom3D: {
       imageDataUrl: '/src/assets/images/timberland_boot_black_1795072574380.jpg',
       removeBackground: true,
@@ -128,14 +137,13 @@ export const SEED_PRODUCTS: Product[] = [
     description:
       'T-SHIRT FEAR OF GOD ESSENTIALS EN JERSEY COTON LOURD JET BLACK. VOLUME BOXY STRUCTUREL, MANCHES LARGES TOMBANTES, MARQUAGE VELOURS TON SUR TON POITRINE ET ÉTIQUETTE GOMME ESSENTIALS AU COL.',
     modelPreset: 'TS',
+    images: ['/src/assets/images/essentials_tee_black_1795072573074.jpg'],
+    model3dUrl: null,
+    model3dStatus: 'none',
+    model3dJobId: null,
+    model3dError: null,
     custom3D: {
       imageDataUrl: '/src/assets/images/essentials_tee_black_1795072573074.jpg',
-      views360: [
-        '/src/assets/images/essentials_tee_black_1795072573074.jpg',
-        '/src/assets/images/essentials_tee_right_1795093360195.jpg',
-        '/src/assets/images/essentials_tee_back_1795093359712.jpg',
-        '/src/assets/images/essentials_tee_left_1795093358743.jpg',
-      ],
       removeBackground: true,
       bgTolerance: 30,
       depth: 0.32,
@@ -166,6 +174,11 @@ export const SEED_PRODUCTS: Product[] = [
     description:
       'SWEAT À CAPUCHE CARHARTT WIP CHASE EN MOLLETON ÉPAIS 440 GSM. CONCEPTION MANCHES RAGLAN, DOUBLE CAPUCHE AJUSTABLE PAR CORDON À ŒILLETS MÉTALLIQUES ET BRODERIE DISCRÈTE SUR LA MANCHE.',
     modelPreset: 'HD',
+    images: ['/src/assets/images/carhartt_hoodie_black_1795072646204.jpg'],
+    model3dUrl: null,
+    model3dStatus: 'none',
+    model3dJobId: null,
+    model3dError: null,
     custom3D: {
       imageDataUrl: '/src/assets/images/carhartt_hoodie_black_1795072646204.jpg',
       removeBackground: true,
@@ -198,6 +211,11 @@ export const SEED_PRODUCTS: Product[] = [
     description:
       'PANTALON CARGO STONE ISLAND TEINT EN PIÈCE. POCHES LATÉRALES VOLUMÉTRIQUES À RABAT ET BOUTONS-PRESSION, GENOUX ARTICULÉS ET ÉCUSSON BOUSSOLE SIGNATURE BOUTONNÉ SUR LA POCHE GAUCHE.',
     modelPreset: 'PT',
+    images: ['/src/assets/images/stone_island_cargo_1795072639590.jpg'],
+    model3dUrl: null,
+    model3dStatus: 'none',
+    model3dJobId: null,
+    model3dError: null,
     custom3D: {
       imageDataUrl: '/src/assets/images/stone_island_cargo_1795072639590.jpg',
       removeBackground: true,
@@ -230,6 +248,11 @@ export const SEED_PRODUCTS: Product[] = [
     description:
       "VESTE HARDSHELL ARC'TERYX BETA LT EN GORE-TEX 3L IMPERMÉABLE ET RESPIRANTE. FERMETURE CENTRALE WATERTIGHT SCELLÉE, POCHES POITRINE EN BIAIS, COL TEMPÊTE STRUCTURÉ ET COUPE ARTICULÉE.",
     modelPreset: 'WB',
+    images: ['/src/assets/images/arcteryx_beta_black_1795072642687.jpg'],
+    model3dUrl: null,
+    model3dStatus: 'none',
+    model3dJobId: null,
+    model3dError: null,
     custom3D: {
       imageDataUrl: '/src/assets/images/arcteryx_beta_black_1795072642687.jpg',
       removeBackground: true,
@@ -262,6 +285,11 @@ export const SEED_PRODUCTS: Product[] = [
     description:
       'PANTALON DE SURVÊTEMENT NIKE SPORTSWEAR TECH FLEECE. ISOLATION LÉGÈRE DOUBLE FACE, POCHE LATÉRALE VERTICALE ZIPPÉE À BANDE THERMOCOLLÉE SIGNATURE ET BAS DE JAMBE AJUSTÉS.',
     modelPreset: 'SP',
+    images: ['/src/assets/images/nike_tech_joggers_1795072639414.jpg'],
+    model3dUrl: null,
+    model3dStatus: 'none',
+    model3dJobId: null,
+    model3dError: null,
     custom3D: {
       imageDataUrl: '/src/assets/images/nike_tech_joggers_1795072639414.jpg',
       removeBackground: true,
@@ -298,14 +326,13 @@ export const SEED_PRODUCTS: Product[] = [
     description:
       'SAC BANDOULIÈRE PRADA EN RE-NYLON NOIR SATINÉ ET BORDURES CUIR SAFFIANO. RABAT À DOUBLE BOUCLE RAPIDE EN MÉTAL, PLAQUE TRIANGLE MÉTALLIQUE SIGNATURE EN FAÇADE ET SANGLE TISSÉE RÉGLABLE.',
     modelPreset: 'BG',
+    images: ['/src/assets/images/prada_renylon_bag_1795072692812.jpg'],
+    model3dUrl: null,
+    model3dStatus: 'none',
+    model3dJobId: null,
+    model3dError: null,
     custom3D: {
       imageDataUrl: '/src/assets/images/prada_renylon_bag_1795072692812.jpg',
-      views360: [
-        '/src/assets/images/prada_renylon_bag_1795072692812.jpg',
-        '/src/assets/images/prada_bag_right_1795093358204.jpg',
-        '/src/assets/images/prada_bag_back_1795093359161.jpg',
-        '/src/assets/images/prada_bag_left_1795093358143.jpg',
-      ],
       removeBackground: true,
       bgTolerance: 32,
       depth: 0.4,
@@ -331,6 +358,11 @@ export const SEED_PRODUCTS: Product[] = [
     description:
       'CASQUETTE NEW ERA 59FIFTY NEW YORK YANKEES FULL BLACK. COURONNE STRUCTURÉE HAUTE TENUE, MONOGRAMME NY BRODÉ EN RELIEF NOIR SUR NOIR, ŒILLETS DE VENTILATION ET DRAPEAU NEW ERA LATÉRAL.',
     modelPreset: 'CP',
+    images: ['/src/assets/images/newera_yankees_cap_1795072695008.jpg'],
+    model3dUrl: null,
+    model3dStatus: 'none',
+    model3dJobId: null,
+    model3dError: null,
     custom3D: {
       imageDataUrl: '/src/assets/images/newera_yankees_cap_1795072695008.jpg',
       removeBackground: true,
@@ -363,6 +395,11 @@ export const SEED_PRODUCTS: Product[] = [
     description:
       'CHAUSSETTES HAUTES NIKE EVERYDAY PLUS CUSHIONED TECHNOLOGIE DRI-FIT. TIGE CÔTELÉE À SWOOSH JACQUARD NOIR, AMORTI CIBLE SOUS LE PIED ET MAINTIEN ÉLASTIQUE MÉDIO-PIED.',
     modelPreset: 'SK',
+    images: ['/src/assets/images/nike_crew_socks_1795072691428.jpg'],
+    model3dUrl: null,
+    model3dStatus: 'none',
+    model3dJobId: null,
+    model3dError: null,
     custom3D: {
       imageDataUrl: '/src/assets/images/nike_crew_socks_1795072691428.jpg',
       removeBackground: true,
@@ -393,6 +430,11 @@ export const SEED_PRODUCTS: Product[] = [
     description:
       'CEINTURE ICONIQUE 1017 ALYX 9SM CLASSIC ROLLERCOASTER EN NYLON TISSÉ NOIR. BOUCLE MÉCANIQUE À DÉCLENCHEMENT RAPIDE EN ALUMINIUM ANODISÉ NOIR/ACIER AVEC GRAVURE TECHNIQUE LASER.',
     modelPreset: 'BL',
+    images: ['/src/assets/images/alyx_rollercoaster_belt_1795072691368.jpg'],
+    model3dUrl: null,
+    model3dStatus: 'none',
+    model3dJobId: null,
+    model3dError: null,
     custom3D: {
       imageDataUrl: '/src/assets/images/alyx_rollercoaster_belt_1795072691368.jpg',
       removeBackground: true,

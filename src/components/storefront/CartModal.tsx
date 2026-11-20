@@ -134,7 +134,7 @@ export const CartModal: React.FC<CartModalProps> = ({ open, onClose }) => {
         {/* STEP 1: CART LIST */}
         {step === 'CART' && (
           <>
-            <div className="flex-1 overflow-y-auto px-6 py-3">
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-3">
               {items.length === 0 ? (
                 <div className="py-12 text-center text-[11px] text-[#7A7A7A]">
                   AUCUN ARTICLE SÉLECTIONNÉ POUR LE MOMENT.
@@ -240,7 +240,7 @@ export const CartModal: React.FC<CartModalProps> = ({ open, onClose }) => {
         {/* STEP 2: CART VALIDATION — SIZE SELECTION + EXPRESS COD FORM */}
         {step === 'COD_FORM' && (
           <form onSubmit={handleSubmitCod} className="flex min-h-0 flex-1 flex-col">
-            <div className="flex-1 space-y-6 overflow-y-auto px-6 py-3">
+            <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-3">
               {/* Dedicated Size / Pointure Selection for each article in the cart */}
               <div className="space-y-3">
                 <div className="text-[10px] font-bold tracking-[0.12em] text-black">
@@ -416,7 +416,7 @@ export const CartModal: React.FC<CartModalProps> = ({ open, onClose }) => {
 
         {/* STEP 3: GENERATED WHATSAPP SUMMARY */}
         {step === 'CONFIRMED' && confirmedOrder && (
-          <div className="flex flex-1 flex-col overflow-y-auto px-6 pt-2 pb-5">
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pt-2 pb-5">
             <div className="bg-[#F7F7F7] p-3.5 text-[11px] font-bold text-black">
               COMMANDE COD ENREGISTRÉE — PRÊTE POUR EXPÉDITION WHATSAPP
             </div>

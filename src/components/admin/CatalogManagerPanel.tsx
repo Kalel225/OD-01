@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowUpRight, Trash2 } from 'lucide-react';
 import { useOD01Store } from '../../store/useOD01Store';
-import { UNIVERSE_ORDER, UniverseId, formatFcfa } from '../../types/od01';
+import { Model3dStatus, Product, UNIVERSE_ORDER, UniverseId, formatFcfa } from '../../types/od01';
 import { ProductThumbnail } from '../storefront/ProductThumbnail';
 
 interface CatalogManagerPanelProps {
@@ -13,6 +13,7 @@ export const CatalogManagerPanel: React.FC<CatalogManagerPanelProps> = ({
 }) => {
   const {
     products,
+    updateProduct3DState,
     updateProductPrice,
     updateVariantStock,
     toggleProductActive,
@@ -26,23 +27,124 @@ export const CatalogManagerPanel: React.FC<CatalogManagerPanelProps> = ({
     return products.filter((p) => p.universe === filter);
   }, [products, filter]);
 
+  const processingIds = useMemo(
+    () =>
+      products
+        .filter((p) => p.model3dStatus === 'pending' || p.model3dStatus === 'processing')
+        .map((p) => p.id),
+    [products]
+  );
+
+  // Poll status every 4s for any catalog product currently being reconstructed in 3D
+  useEffect(() => {
+    if (processingIds.length === 0) return;
+    let cancelled = false;
+
+    const pollAll = async () => {
+      for (const id of processingIds) {
+        if (cancelled) return;
+        try {
+          const res = await fetch(`/api/products/${encodeURIComponent(id)}/generate-3d/status`);
+          const data = (await res.json()) as {
+            status?: Model3dStatus;
+            model3dUrl?: string | null;
+            error?: string | null;
+          };
+          if (cancelled) return;
+          if (data.status === 'ready' && data.model3dUrl) {
+            updateProduct3DState(id, {
+              model3dStatus: 'ready',
+              model3dUrl: data.model3dUrl,
+              model3dError: null,
+            });
+          } else if (data.status === 'failed') {
+            updateProduct3DState(id, {
+              model3dStatus: 'failed',
+              model3dError: data.error || 'Échec de la reconstruction 3D.',
+            });
+          }
+        } catch {
+          // keep polling
+        }
+      }
+    };
+
+    const timer = window.setInterval(() => {
+      void pollAll();
+    }, 4000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [processingIds, updateProduct3DState]);
+
+  const handleGenerate3DForProduct = useCallback(
+    async (product: Product) => {
+      const imgs =
+        product.images && product.images.length > 0
+          ? product.images
+          : product.custom3D?.imageDataUrl
+            ? [product.custom3D.imageDataUrl]
+            : [];
+
+      if (imgs.length === 0) return;
+
+      updateProduct3DState(product.id, {
+        images: imgs,
+        model3dStatus: 'pending',
+        model3dError: null,
+      });
+
+      try {
+        const res = await fetch(`/api/products/${encodeURIComponent(product.id)}/generate-3d`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ images: imgs }),
+        });
+        const data = (await res.json()) as {
+          status?: Model3dStatus;
+          jobId?: string;
+          error?: string;
+        };
+        if (!res.ok || data.error) {
+          updateProduct3DState(product.id, {
+            model3dStatus: 'failed',
+            model3dError: data.error || `Erreur HTTP ${res.status}`,
+          });
+          return;
+        }
+        updateProduct3DState(product.id, {
+          model3dStatus: data.status ?? 'processing',
+          model3dJobId: data.jobId ?? null,
+          model3dError: null,
+        });
+      } catch (err) {
+        updateProduct3DState(product.id, {
+          model3dStatus: 'failed',
+          model3dError: err instanceof Error ? err.message : 'Erreur réseau',
+        });
+      }
+    },
+    [updateProduct3DState]
+  );
+
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E5E5E5] pb-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-1">
         <div className="text-[11px] font-bold tracking-[0.12em]">
           INVENTAIRE ARCHIVE ({filtered.length})
         </div>
 
-        <div className="flex flex-wrap items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1.5">
           {(['TOUS', ...UNIVERSE_ORDER] as const).map((tab) => (
             <button
               key={tab}
               type="button"
               onClick={() => setFilter(tab)}
-              className={`min-h-[34px] border px-3 text-[10px] ${
+              className={`min-h-[34px] px-3 text-[10px] transition-colors ${
                 filter === tab
-                  ? 'border-black bg-black text-white'
-                  : 'border-[#E5E5E5] bg-white text-[#7A7A7A] hover:border-black hover:text-black'
+                  ? 'bg-black text-white'
+                  : 'bg-[#F7F7F7] text-[#7A7A7A] hover:bg-[#EAEAEA] hover:text-black'
               }`}
             >
               {tab}
@@ -51,25 +153,25 @@ export const CatalogManagerPanel: React.FC<CatalogManagerPanelProps> = ({
         </div>
       </div>
 
-      <div className="divide-y divide-[#E5E5E5] border border-[#E5E5E5]">
+      <div className="space-y-3">
         {filtered.map((product) => (
           <div
             key={product.id}
-            className={`grid grid-cols-1 gap-4 bg-white p-4 sm:grid-cols-2 lg:grid-cols-12 lg:items-center ${
+            className={`grid grid-cols-1 gap-4 bg-[#F7F7F7] p-4 sm:grid-cols-2 lg:grid-cols-12 lg:items-center ${
               !product.active ? 'opacity-50' : ''
             }`}
           >
             <div className="sm:col-span-1 lg:col-span-2">
-              <ProductThumbnail product={product} className="h-24 w-full lg:h-20" />
+              <ProductThumbnail product={product} className="h-24 w-full bg-white lg:h-20" />
             </div>
 
             <div className="min-w-0 sm:col-span-1 lg:col-span-4">
               <div className="text-[10px] text-[#7A7A7A] tabular-nums">
                 {product.sku} · {product.universe}
-                {product.custom3D?.views360 && product.custom3D.views360.length >= 2
-                  ? ` · 360° (${product.custom3D.views360.length} VUES)`
-                  : product.isCustom
-                    ? ' · 2D→3D'
+                {product.model3dStatus === 'ready'
+                  ? ' · 3D .GLB PRÊT'
+                  : product.model3dStatus === 'processing' || product.model3dStatus === 'pending'
+                    ? ' · 3D EN COURS...'
                     : ''}
               </div>
               <div className="mt-1 truncate text-[12px] font-bold text-black">{product.name}</div>
@@ -83,12 +185,15 @@ export const CatalogManagerPanel: React.FC<CatalogManagerPanelProps> = ({
                   onChange={(e) =>
                     updateProductPrice(product.id, parseInt(e.target.value, 10) || 0)
                   }
-                  className="h-8 w-28 border border-black px-2 text-[11px] font-bold tabular-nums"
+                  className="h-8 w-28 bg-white px-2 text-[11px] font-bold tabular-nums"
                 />
                 <span className="text-[10px] text-[#7A7A7A] tabular-nums">
                   ({formatFcfa(product.priceFcfa)})
                 </span>
               </div>
+              {product.model3dStatus === 'failed' && product.model3dError && (
+                <div className="mt-1.5 text-[9px] text-black">{product.model3dError}</div>
+              )}
             </div>
 
             <div className="sm:col-span-2 lg:col-span-4">
@@ -97,7 +202,7 @@ export const CatalogManagerPanel: React.FC<CatalogManagerPanelProps> = ({
                 {product.sizes.map((s) => (
                   <div
                     key={s.label}
-                    className="flex items-center gap-1 border border-[#E5E5E5] px-2 py-1 text-[10px]"
+                    className="flex items-center gap-1 bg-white px-2 py-1 text-[10px]"
                   >
                     <span className="font-bold">{s.label}</span>
                     <input
@@ -113,21 +218,38 @@ export const CatalogManagerPanel: React.FC<CatalogManagerPanelProps> = ({
                           parseInt(e.target.value, 10) || 0
                         )
                       }
-                      className="h-6 w-12 border border-[#E5E5E5] px-1 text-right font-bold tabular-nums focus:border-black"
+                      className="h-6 w-12 bg-[#F7F7F7] px-1 text-right font-bold tabular-nums"
                     />
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-1.5 sm:col-span-2 lg:col-span-2">
+            <div className="flex flex-wrap items-center justify-end gap-1.5 sm:col-span-2 lg:col-span-2">
+              <button
+                type="button"
+                disabled={
+                  product.model3dStatus === 'pending' || product.model3dStatus === 'processing'
+                }
+                onClick={() => void handleGenerate3DForProduct(product)}
+                className="min-h-[36px] bg-white px-2.5 text-[9px] font-bold text-black hover:bg-black hover:text-white disabled:bg-[#EAEAEA] disabled:text-[#7A7A7A]"
+              >
+                {product.model3dStatus === 'pending' || product.model3dStatus === 'processing'
+                  ? '3D...'
+                  : product.model3dStatus === 'ready'
+                    ? 'RÉGÉN. 3D'
+                    : product.model3dStatus === 'failed'
+                      ? 'RÉESSAYER 3D'
+                      : 'GÉNÉRER 3D'}
+              </button>
+
               <button
                 type="button"
                 onClick={() => toggleProductActive(product.id)}
-                className={`min-h-[36px] border px-2.5 text-[10px] font-bold ${
+                className={`min-h-[36px] px-2.5 text-[10px] font-bold ${
                   product.active
-                    ? 'border-black bg-white text-black hover:bg-[#F7F7F7]'
-                    : 'border-black bg-black text-white'
+                    ? 'bg-white text-black hover:bg-[#EAEAEA]'
+                    : 'bg-black text-white'
                 }`}
               >
                 {product.active ? 'ACTIF' : 'MASQUÉ'}
@@ -138,7 +260,7 @@ export const CatalogManagerPanel: React.FC<CatalogManagerPanelProps> = ({
                   type="button"
                   onClick={() => onViewProductInStore(product.id)}
                   aria-label="Voir en 3D sur la boutique"
-                  className="flex h-9 w-9 items-center justify-center border border-[#E5E5E5] text-black hover:border-black"
+                  className="flex h-9 w-9 items-center justify-center bg-white text-black hover:bg-black hover:text-white"
                 >
                   <ArrowUpRight className="h-3.5 w-3.5" />
                 </button>
@@ -149,7 +271,7 @@ export const CatalogManagerPanel: React.FC<CatalogManagerPanelProps> = ({
                   type="button"
                   onClick={() => deleteCustomProduct(product.id)}
                   aria-label="Supprimer l'article personnalisé"
-                  className="flex h-9 w-9 items-center justify-center border border-[#E5E5E5] text-[#7A7A7A] hover:border-black hover:text-black"
+                  className="flex h-9 w-9 items-center justify-center bg-white text-[#7A7A7A] hover:bg-black hover:text-white"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>

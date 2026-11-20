@@ -59,17 +59,24 @@ async function ensureFalAccessibleImageUrl(rawUrl: string): Promise<string> {
     path.resolve(process.cwd(), 'public', rel),
   ];
 
+  let fileBuf: Buffer | null = null;
+  let foundPath: string | null = null;
   for (const candidate of candidates) {
     try {
-      const fileBuf = await fs.readFile(candidate);
-      const blob = new Blob([fileBuf], { type: guessMimeFromExt(candidate) });
-      return await fal.storage.upload(blob);
+      fileBuf = await fs.readFile(candidate);
+      foundPath = candidate;
+      break;
     } catch {
       // Try next candidate
     }
   }
 
-  throw new Error(`Image locale introuvable : ${trimmed}`);
+  if (!fileBuf || !foundPath) {
+    throw new Error(`Image locale introuvable : ${trimmed}`);
+  }
+
+  const blob = new Blob([new Uint8Array(fileBuf)], { type: guessMimeFromExt(foundPath) });
+  return await fal.storage.upload(blob);
 }
 
 function extractUrlFromResult(data: unknown, keys: string[]): string | null {
